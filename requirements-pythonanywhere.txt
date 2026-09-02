@@ -1,0 +1,18 @@
+# Slim install for a PythonAnywhere free account (512 MB disk).
+#
+# app.py imports every Google, Firebase and Keep library lazily, inside the
+# function that needs it, and each of those endpoints reports itself as
+# "not configured" when the import fails. So the whiteboard, the boards API,
+# projects, uploads and the client-side Firebase sync all work with just the
+# two packages below — the full requirements.txt pulls in
+# google-api-python-client (~100 MB) and firebase-admin, which together do
+# not comfortably fit in a free account's disk quota.
+#
+# A free account also proxies outbound traffic through a domain allowlist, so
+# several of those server-side Google calls could not complete anyway. Board
+# sync is unaffected: that runs in the visitor's browser, not on the server.
+#
+# Use the full requirements.txt instead on any host with real disk.
+
+flask>=3.0.0
+flask-cors>=4.0.0
