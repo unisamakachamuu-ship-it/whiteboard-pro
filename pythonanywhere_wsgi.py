@@ -30,6 +30,28 @@ if PROJECT_DIR not in sys.path:
 # and anything that shells out does, and PythonAnywhere starts workers in /.
 os.chdir(PROJECT_DIR)
 
+# ---------------------------------------------------------------------------
+# Outbound access on a free account
+# ---------------------------------------------------------------------------
+# A free PythonAnywhere account cannot open a socket to the internet
+# directly; everything has to go through their HTTP proxy, and only to sites
+# on their allowlist (Google's APIs are on it). Consoles get these variables
+# set for them, web app workers do not — so without this block every
+# server-side Google call dies with:
+#
+#     [Errno 101] Network is unreachable
+#
+# requests, httplib2 and google-auth all read these, which covers the whole
+# Google Workspace OAuth exchange and the REST APIs behind it.
+#
+# What this does NOT fix: firebase-admin talks to Firestore over gRPC, which
+# ignores HTTP proxies, so /api/auth/firebase-token stays unavailable on a
+# free account. Nothing user-facing depends on it — signing in and board sync
+# both run in the browser, which is not behind this firewall.
+PROXY = 'http://proxy.server:3128'
+for _var in ('HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'):
+    os.environ[_var] = PROXY
+
 # app.py loads PROJECT_DIR/.env itself on import. Create that file on the
 # server (see DEPLOY.md) for GOOGLE_CLIENT_ID and friends. Anything set here
 # instead would also work:
