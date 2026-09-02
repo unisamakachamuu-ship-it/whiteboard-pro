@@ -17,7 +17,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from urllib.parse import urlparse, urlunparse
 
-from flask import Flask, render_template, request, jsonify, session, send_file, redirect
+from flask import (Flask, render_template, request, jsonify, session, send_file,
+                   redirect, send_from_directory)
 from flask_cors import CORS
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -60,6 +61,24 @@ _dotenv_count = load_dotenv()
 
 app = Flask(__name__)
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+
+# ---------------------------------------------------------------------------
+# Persistent storage locations
+# ---------------------------------------------------------------------------
+# Everything that must survive a restart lives under these two directories:
+# boards, projects, the session signing key and the Google OAuth tokens in
+# DATA_DIR; user-uploaded images and attachments in UPLOAD_DIR.
+#
+# They default to ./data and ./static/uploads, which is what a local
+# `python app.py` has always used. Hosts that give a service a single
+# persistent volume (Render, Fly, Railway) point both at it instead:
+#
+#     DATA_DIR=/var/data/data  UPLOAD_DIR=/var/data/uploads
+#
+# Without that, a container filesystem is ephemeral and every redeploy
+# silently discards every board.
+DATA_DIR = os.environ.get('DATA_DIR') or os.path.join(BASE_DIR, 'data')
+UPLOAD_DIR = os.environ.get('UPLOAD_DIR') or os.path.join(BASE_DIR, 'static', 'uploads')
 
 # Unset (the default) allows every origin, which is fine for a single
 # self-hosted instance behind its own domain. Set CORS_ORIGINS to a
@@ -158,7 +177,7 @@ def _stable_secret_key():
     if from_env:
         return from_env
 
-    key_file = os.path.join(BASE_DIR, 'data', '.secret_key')
+    key_file = os.path.join(DATA_DIR, '.secret_key')
     os.makedirs(os.path.dirname(key_file), exist_ok=True)
     if os.path.exists(key_file):
         with open(key_file, 'r', encoding='utf-8') as f:
@@ -183,10 +202,8 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
 )
 
-# Directories
-DATA_DIR = os.path.join(BASE_DIR, 'data')
+# Directories (DATA_DIR and UPLOAD_DIR are set at the top of the file)
 PROJECTS_DIR = os.path.join(DATA_DIR, 'projects')
-UPLOAD_DIR = os.path.join(BASE_DIR, 'static', 'uploads')
 
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(PROJECTS_DIR, exist_ok=True)
@@ -299,6 +316,23 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/static/uploads/<path:filename>')
+def serve_upload(filename):
+    """
+    Serve an uploaded image or attachment out of UPLOAD_DIR.
+
+    Uploads are handed to the client as '/static/uploads/<name>' and that URL
+    is saved inside the board JSON, so it has to keep working even when
+    UPLOAD_DIR has been pointed at a persistent volume outside the static
+    tree. This rule is more specific than Flask's built-in '/static/<path>',
+    so Werkzeug matches it first and the files resolve either way.
+
+    send_from_directory rejects any filename that escapes the directory, and
+    uploads are stored under a generated uuid name, never the client's.
+    """
+    return send_from_directory(UPLOAD_DIR, filename)
+
+
 # ---------------------------------------------------------------------------
 # Board CRUD API
 # ---------------------------------------------------------------------------
@@ -326,7 +360,11 @@ def list_boards():
         except Exception:
             logger.warning('Skipping unreadable board file: %s', fname)
             continue
-    boards.sort(key=lambda b: b.get('updated_at', ''), reverse=True)
+    # `or ''` rather than a .get default: the key is always present here, set
+    # to None for a board file that never recorded a timestamp, and a default
+    # only applies to a missing key. Sorting None against a real timestamp
+    # raises TypeError and took the whole endpoint out with a 500.
+    boards.sort(key=lambda b: b.get('updated_at') or '', reverse=True)
     return jsonify(boards)
 
 

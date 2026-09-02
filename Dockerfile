@@ -33,7 +33,11 @@ ENV PYTHONUNBUFFERED=1 \
 EXPOSE 5000
 ENV WEB_CONCURRENCY=4
 
-# Shell form so WEB_CONCURRENCY is actually substituted; 4 is a reasonable
-# default for a small self-hosted instance — override with
+# Shell form so WEB_CONCURRENCY and PORT are actually substituted; 4 is a
+# reasonable default for a small self-hosted instance — override with
 # `docker run -e WEB_CONCURRENCY=N ...`.
-CMD gunicorn --bind 0.0.0.0:5000 --workers ${WEB_CONCURRENCY} --timeout 120 app:app
+#
+# PORT defaults to 5000 for a plain `docker run`, but managed hosts (Render,
+# Railway, Cloud Run) inject their own and route traffic only to that port —
+# binding a fixed 5000 there makes the health check fail and the deploy hang.
+CMD gunicorn --bind 0.0.0.0:${PORT:-5000} --workers ${WEB_CONCURRENCY} --timeout 120 app:app

@@ -1,0 +1,85 @@
+# Render blueprint — https://render.com/docs/blueprint-spec
+#
+# Deploy: push this repo to GitHub, then in the Render dashboard choose
+# "New +" -> "Blueprint" and pick the repository. Render reads this file,
+# builds the Dockerfile and starts the service.
+#
+# ---------------------------------------------------------------------------
+# About the disk (important)
+# ---------------------------------------------------------------------------
+# A container filesystem is thrown away on every deploy and every restart.
+# This app keeps boards, projects, uploads, the session signing key and the
+# Google OAuth tokens on disk, so without a persistent volume all of it
+# disappears the first time the service restarts.
+#
+# Persistent disks require a paid instance type (starter and up). If you want
+# to run on the FREE plan instead, change `plan: starter` to `plan: free` and
+# delete the whole `disk:` block plus the DATA_DIR and UPLOAD_DIR variables.
+# The app still runs, but treat anything saved server-side as temporary —
+# sign in so boards sync to Firebase, which persists independently.
+#
+# Note the free plan also spins the service down after ~15 minutes of
+# inactivity, and the next request takes ~50s to wake it.
+
+services:
+  - type: web
+    name: whiteboard-pro
+    runtime: docker
+    plan: starter
+    region: oregon
+    healthCheckPath: /
+
+    disk:
+      name: whiteboard-data
+      mountPath: /var/data
+      sizeGB: 1
+
+    envVars:
+      # Both persistent trees live on the one mounted disk.
+      - key: DATA_DIR
+        value: /var/data/data
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
+
+      # Generated once by Render and then held stable. This signs the session
+      # cookie that the stored Google OAuth tokens are keyed against — if it
+      # changes, every user is signed out and the integrations disconnect.
+      - key: SECRET_KEY
+        generateValue: true
+
+      - key: FLASK_DEBUG
+        value: "0"
+
+      # gunicorn workers. Each one holds its own Google Keep sessions in
+      # memory, so keep this modest on a small instance.
+      - key: WEB_CONCURRENCY
+        value: "2"
+
+      # ---------------------------------------------------------------
+      # Set these in the Render dashboard (Environment tab), not here —
+      # they are secrets and must never be committed.
+      # ---------------------------------------------------------------
+      # GOOGLE_REDIRECT_URI must be the deployed https URL plus
+      # /api/google/callback, and the exact same string has to be added to
+      # the Google Cloud console under "Authorized redirect URIs", or the
+      # OAuth round trip fails with redirect_uri_mismatch.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+
+      # This is a PATH to the Firebase Admin key file, not the key itself.
+      # In the Render dashboard add a Secret File named
+      # firebase-service-account.json holding the JSON — Render mounts it at
+      # /etc/secrets/<name> — then set this variable to that path:
+      #   FIREBASE_SERVICE_ACCOUNT=/etc/secrets/firebase-service-account.json
+      # Leave it unset to run without Firebase Admin; the client-side
+      # Firebase sync still works, only server-side token verification is off.
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
+
+      # Comma-separated allowlist. Leave unset to allow every origin.
+      - key: CORS_ORIGINS
+        sync: false
