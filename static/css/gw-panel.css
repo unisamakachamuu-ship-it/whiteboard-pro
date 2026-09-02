@@ -1,0 +1,351 @@
+/* ================================================================
+   gw-panel.css — Google Workspace panel on the board canvas
+   ----------------------------------------------------------------
+   Slide-out tray for browsing Docs, Sheets, Slides, Calendar and
+   Tasks directly from the whiteboard. Uses the same design tokens
+   as the rest of the app so all themes work automatically.
+   ================================================================ */
+
+/* ============================== PANEL SHELL ============================== */
+
+.gw-board-panel {
+  position: fixed;
+  top: 48px;
+  right: 0;
+  bottom: 0;
+  width: 380px;
+  max-width: 90vw;
+  background: var(--clr-surface);
+  border-left: 1px solid var(--clr-border);
+  box-shadow: -6px 0 32px rgba(0,0,0,.08);
+  display: flex;
+  flex-direction: column;
+  z-index: 310;
+  transform: translateX(100%);
+  transition: transform .26s cubic-bezier(.4,0,.2,1);
+  overflow: hidden;
+}
+.gw-board-panel.is-open { transform: translateX(0); }
+
+/* ============================== HEADER ============================== */
+
+.gwp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--clr-border);
+  background: var(--clr-surface);
+  flex: none;
+}
+
+.gwp-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--clr-text);
+}
+
+.gwp-close {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: var(--clr-text-muted);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-size: 16px;
+  transition: background .15s, color .15s;
+}
+.gwp-close:hover {
+  background: var(--clr-surface-alt);
+  color: var(--clr-text);
+}
+
+/* ============================== TABS ============================== */
+
+.gwp-tabs {
+  display: flex;
+  padding: 6px 8px 0;
+  border-bottom: 1px solid var(--clr-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: none;
+  gap: 2px;
+}
+.gwp-tabs::-webkit-scrollbar { display: none; }
+
+.gwp-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--clr-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s, color .15s;
+  border-bottom: 2px solid transparent;
+}
+.gwp-tab svg { width: 18px; height: 18px; flex: none; }
+.gwp-tab span { display: none; }
+.gwp-tab:hover { background: var(--clr-surface-alt); color: var(--clr-text); }
+.gwp-tab.is-active {
+  color: var(--clr-primary);
+  border-bottom-color: var(--clr-primary);
+  background: color-mix(in srgb, var(--clr-primary) 6%, transparent);
+}
+.gwp-tab.is-active span { display: inline; }
+
+/* Show labels on wider panels */
+@media (min-width: 640px) {
+  .gwp-tab span { display: inline; }
+}
+
+/* ============================== SEARCH ============================== */
+
+.gwp-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--r-md);
+  background: var(--clr-surface-alt);
+  color: var(--clr-text-muted);
+  flex: none;
+  transition: border-color .15s;
+}
+.gwp-search-wrap:focus-within {
+  border-color: var(--clr-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--clr-primary) 15%, transparent);
+}
+.gwp-search-wrap i { font-size: 14px; flex: none; }
+.gwp-search {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--clr-text);
+  font-size: 13px;
+  outline: none;
+  min-width: 0;
+}
+.gwp-search::placeholder { color: var(--clr-text-muted); }
+
+/* ============================== BODY / LIST ============================== */
+
+.gwp-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 8px;
+  scrollbar-width: thin;
+}
+
+.gwp-list { display: flex; flex-direction: column; gap: 3px; }
+
+/* ============================== SECTIONS (flat all-apps view) ============================== */
+
+.gwp-section { margin-bottom: 14px; }
+.gwp-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--clr-text-muted);
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+.gwp-section-head svg { width: 16px; height: 16px; flex: none; }
+.gwp-section-head strong { color: var(--clr-text); font-weight: 700; text-transform: none; letter-spacing: 0; font-size: 12.5px; }
+.gwp-section-count {
+  margin-left: auto;
+  background: var(--clr-surface-alt);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.gwp-section-manage {
+  border: none;
+  background: transparent;
+  color: var(--clr-text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-sm);
+}
+.gwp-section-manage:hover { background: var(--clr-surface-alt); color: var(--clr-text); }
+.gwp-section-empty, .gwp-section-error {
+  padding: 14px 10px;
+  font-size: 12px;
+}
+
+.gwp-loading,
+.gwp-empty,
+.gwp-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 20px;
+  color: var(--clr-text-muted);
+  text-align: center;
+  font-size: 13px;
+}
+.gwp-loading .spinner { width: 26px; height: 26px; }
+.gwp-empty i, .gwp-error i { font-size: 30px; opacity: .6; }
+.gwp-error i { color: var(--clr-danger); }
+
+.gwp-reconnect {
+  margin-top: 6px;
+  font-size: 12px !important;
+}
+
+/* ============================== ITEM ROW ============================== */
+
+.gwp-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--r-md);
+  cursor: grab;
+  transition: background .12s;
+  user-select: none;
+  -webkit-user-select: none;
+  border: 1px solid transparent;
+}
+.gwp-item:hover {
+  background: var(--clr-surface-alt);
+  border-color: var(--clr-border);
+}
+.gwp-item:active { cursor: grabbing; }
+
+.gwp-item-icon {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-md);
+  border: 1.5px solid;
+}
+.gwp-item-icon svg { width: 24px; height: 24px; }
+
+.gwp-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.gwp-item-info strong {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--clr-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gwp-item-info span {
+  font-size: 11.5px;
+  color: var(--clr-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- action buttons ---- */
+
+.gwp-item-actions {
+  display: flex;
+  gap: 2px;
+  flex: none;
+  opacity: 0;
+  transition: opacity .15s;
+}
+.gwp-item:hover .gwp-item-actions { opacity: 1; }
+
+.gwp-item-btn {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: var(--clr-text-muted);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-size: 15px;
+  transition: background .12s, color .12s;
+}
+.gwp-item-btn:hover {
+  background: var(--clr-surface);
+  color: var(--clr-primary);
+}
+
+/* ============================== FOOTER ============================== */
+
+.gwp-footer {
+  padding: 8px 14px;
+  border-top: 1px solid var(--clr-border);
+  flex: none;
+}
+
+.gwp-drag-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--clr-text-muted);
+  font-weight: 500;
+}
+.gwp-drag-hint i { font-size: 14px; }
+
+/* ============================== DRAG GHOST ============================== */
+
+.gwp-drag-ghost {
+  pointer-events: none;
+}
+
+/* ============================== CANVAS DROP INDICATOR ============================== */
+
+.canvas-wrapper.is-gw-dropping {
+  outline: 3px dashed var(--clr-primary);
+  outline-offset: -3px;
+}
+
+/* ============================== TOPBAR BUTTON ============================== */
+
+#gw-panel-btn {
+  position: relative;
+}
+#gw-panel-btn .gw-btn-icon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#gw-panel-btn .gw-btn-icon svg { width: 16px; height: 16px; }
+
+/* ============================== RESPONSIVE ============================== */
+
+@media (max-width: 480px) {
+  .gw-board-panel { width: 100vw; max-width: none; }
+}

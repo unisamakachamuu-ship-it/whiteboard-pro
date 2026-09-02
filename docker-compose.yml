@@ -1,0 +1,15 @@
+services:
+  whiteboard:
+    build: .
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    volumes:
+      - board-data:/app/data
+      - board-uploads:/app/static/uploads
+    restart: unless-stopped
+
+volumes:
+  board-data:
+  board-uploads:

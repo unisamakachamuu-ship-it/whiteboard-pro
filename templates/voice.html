@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#14151a" />
+  <title>Voice · WhiteBoard Pro</title>
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/fill/style.css" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/voice.css') }}" />
+</head>
+<body>
+  <main class="vp-page">
+    <h1 class="vp-title">Voice channel</h1>
+    <p class="vp-sub" id="vp-board">Board: {{ board_id }}</p>
+
+    <button type="button" class="vp-mic" id="vp-mic" title="Join the voice channel">
+      <i class="ph-fill ph-microphone"></i>
+    </button>
+
+    <p class="vp-status" id="vp-status">Tap the microphone to join.</p>
+
+    <div class="vp-people" id="vp-people"></div>
+
+    <div class="vp-actions">
+      <button type="button" class="vp-btn is-danger" id="vp-leave" hidden>Leave</button>
+    </div>
+
+    <p class="vp-sub">
+      Mute the computer that's also on this board, or the two microphones in
+      the same room will echo.
+    </p>
+  </main>
+
+  <script type="module">
+    // The phone page needs Firestore only as the handshake channel, so it
+    // pulls in the same bridge the board uses and nothing else.
+    import '{{ url_for('static', filename='js/firebase-sync.js') }}';
+  </script>
+  <script src="{{ url_for('static', filename='js/voice.js') }}"></script>
+  <script>
+    (function () {
+      const boardId = {{ board_id | tojson }};
+      const micBtn = document.getElementById('vp-mic');
+      const leaveBtn = document.getElementById('vp-leave');
+      const statusEl = document.getElementById('vp-status');
+      const peopleEl = document.getElementById('vp-people');
+
+      const COLORS = ['#4262ff', '#e8618c', '#00b894', '#f39c12', '#9b59b6', '#00a8b5'];
+      let id = null;
+      try { id = sessionStorage.getItem('wbpro.voice.phoneId'); } catch (_) {}
+      if (!id) {
+        id = 'phone-' + Math.random().toString(36).slice(2, 10);
+        try { sessionStorage.setItem('wbpro.voice.phoneId', id); } catch (_) {}
+      }
+      const me = {
+        id,
+        name: 'Phone',
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      };
+
+      let voice = null;
+
+      const paint = () => {
+        const joined = !!voice?.joined;
+        micBtn.classList.toggle('is-muted', joined && voice.muted);
+        micBtn.innerHTML = `<i class="ph-fill ${joined && voice.muted ? 'ph-microphone-slash' : 'ph-microphone'}"></i>`;
+        micBtn.title = !joined ? 'Join the voice channel'
+          : voice.muted ? 'Unmute' : 'Mute';
+        leaveBtn.hidden = !joined;
+
+        if (!joined) {
+          statusEl.textContent = 'Tap the microphone to join.';
+          peopleEl.textContent = '';
+          return;
+        }
+        statusEl.textContent = voice.muted
+          ? 'Muted — tap the microphone to talk.'
+          : `Live · ${voice.participantCount} on the channel`;
+
+        peopleEl.textContent = '';
+        const row = (name, color, talking, muted) => {
+          const d = document.createElement('div');
+          d.className = 'vp-person' + (talking ? ' is-talking' : '');
+          const dot = document.createElement('span');
+          dot.className = 'vp-dot';
+          dot.style.background = color;
+          const label = document.createElement('span');
+          label.textContent = name + (muted ? ' (muted)' : '');
+          d.append(dot, label);
+          peopleEl.appendChild(d);
+        };
+        row('You', me.color, (voice.myLevel || 0) > 0.12, voice.muted);
+        for (const [, p] of voice.peers) {
+          row(p.name || 'Someone', p.color, (p.level || 0) > 0.12, p.remoteMuted);
+        }
+      };
+
+      const waitForFB = () => new Promise(resolve => {
+        if (window.FB) return resolve();
+        window.addEventListener('firebase-ready', () => resolve(), { once: true });
+        setTimeout(resolve, 5000);
+      });
+
+      micBtn.addEventListener('click', async () => {
+        if (!voice) {
+          statusEl.textContent = 'Connecting…';
+          micBtn.disabled = true;
+          await waitForFB();
+          voice = new window.VoiceChannel({ boardId, me, headless: true });
+          voice.onChange(paint);
+          const ok = await voice.join();
+          micBtn.disabled = false;
+          if (!ok) { voice = null; statusEl.textContent = 'Could not open the microphone.'; }
+          paint();
+          setInterval(paint, 400);   // keeps the talking indicators live
+          return;
+        }
+        voice.toggleMute();
+        paint();
+      });
+
+      leaveBtn.addEventListener('click', async () => {
+        await voice?.leave();
+        voice = null;
+        paint();
+      });
+
+      paint();
+    })();
+  </script>
+</body>
+</html>

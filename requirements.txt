@@ -1,0 +1,23 @@
+flask>=3.0.0
+flask-cors>=4.0.0
+pillow>=10.0.0
+gunicorn>=21.2.0
+
+# Google Keep import. gpsoauth is what turns a browser sign-in token into
+# the durable master token Keep actually authenticates with — the App
+# Password route gkeepapi documents no longer works on personal accounts.
+gkeepapi>=0.16.0
+gpsoauth>=1.1.0
+
+# Google Workspace OAuth: Calendar, Gmail, Docs, Drive, Tasks.
+# The server runs fine without these installed; the integration stays
+# dormant and every /api/google/* endpoint says so plainly.
+google-auth>=2.28.0
+google-auth-oauthlib>=1.2.0
+google-api-python-client>=2.120.0
+
+# Bridges the Workspace OAuth connection to a matching Firebase identity, so
+# that's the only Google sign-in anyone needs — see /api/auth/firebase-token
+# in app.py. Also optional: without a service account key configured, that
+# endpoint just reports itself as unconfigured.
+firebase-admin>=6.5.0

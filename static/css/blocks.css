@@ -1,0 +1,1164 @@
+/* ================================================================
+   blocks.css — the three live board objects
+   ----------------------------------------------------------------
+   Code cells, logic circuits and Sheets dashboards. They share one
+   visual language: a tinted header strip, a flat body, and a hairline
+   border that reads as an object on the canvas rather than a floating
+   card. Everything is written against the theme tokens, so all of it
+   follows the board into dark mode without a second palette.
+
+   `.wb-live-ui` is not decoration — it is the class the board's
+   pointer handling looks for to hand a gesture to the block instead
+   of dragging the object. Keep it on anything you can type in, drag
+   inside, or scroll.
+   ================================================================ */
+
+/* ================================================================
+   The left toolbar, when there are more tools than screen
+   ----------------------------------------------------------------
+   It is `overflow-y: auto` with its scrollbar hidden, which is fine
+   right up until the tools stop fitting — and then between five and
+   thirteen of them sit silently below the fold with nothing to say
+   they exist. A tool you cannot see is a tool you do not have.
+
+   Two steps, applied by _fitToolbar() in app.js. First tighten the
+   buttons so everything fits in one glance. Only if that is still not
+   enough does it stay scrolling, and then it shows an edge fade on
+   whichever side has more to see.
+   ================================================================ */
+
+.toolbar.is-dense .tool-btn { width: 36px; height: 34px; }
+.toolbar.is-dense .tool-glyph { font-size: 15px; }
+.toolbar.is-dense .tool-sep { margin: 2px 0; }
+
+.toolbar.is-denser .tool-btn { width: 34px; height: 29px; border-radius: 7px; }
+.toolbar.is-denser .tool-glyph { font-size: 14px; }
+.toolbar.is-denser { gap: 1px; padding: 4px 0; }
+.toolbar.is-denser .tool-sep { margin: 1px 0; }
+
+/* A soft fade means "there is more this way" without stealing a row for
+   an arrow. Only on the side that actually has more. */
+.toolbar.has-more:not(.at-top):not(.at-bottom) {
+  mask-image: linear-gradient(to bottom, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+}
+.toolbar.has-more.at-top:not(.at-bottom) {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 16px), transparent 100%);
+}
+.toolbar.has-more.at-bottom:not(.at-top) {
+  mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
+}
+
+/* …and a real scrollbar the moment the pointer is over it, so the
+   affordance is not only a hint. */
+.toolbar.has-more:hover { scrollbar-width: thin; }
+.toolbar.has-more:hover::-webkit-scrollbar { display: block; width: 4px; }
+.toolbar.has-more:hover::-webkit-scrollbar-thumb {
+  background: var(--clr-border-strong);
+  border-radius: 999px;
+}
+
+/* ================================================================
+   Shared
+   ================================================================ */
+
+.board-element.type-code-cell,
+.board-element.type-logic-lab,
+.board-element.type-sheet-dash,
+.board-element.type-gcal {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(16, 18, 26, .04), 0 8px 24px -14px rgba(16, 18, 26, .28);
+  user-select: none;
+  font-family: var(--font);
+  color: var(--clr-text);
+}
+
+.wb-live-ui { user-select: text; -webkit-user-select: text; }
+
+.wb-cell-head,
+.wb-lab-head,
+.wb-dash-head,
+.wb-cal-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 7px 9px;
+  background: var(--clr-surface-alt);
+  border-bottom: 1px solid var(--clr-border);
+  font-size: 12px;
+  min-height: 38px;
+}
+
+.wb-cell-spacer { flex: 1 1 auto; }
+
+.wb-cell-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border: 1px solid var(--clr-border);
+  border-radius: 7px;
+  background: var(--clr-surface);
+  color: var(--clr-text-soft);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background .14s ease, color .14s ease, border-color .14s ease, transform .1s ease;
+  white-space: nowrap;
+}
+.wb-cell-btn:hover { background: var(--clr-primary-soft); color: var(--clr-primary); border-color: var(--clr-primary); }
+.wb-cell-btn:active { transform: translateY(1px); }
+.wb-cell-btn:disabled { opacity: .5; cursor: default; transform: none; }
+.wb-cell-btn.is-run { background: var(--clr-primary); border-color: var(--clr-primary); color: #fff; }
+.wb-cell-btn.is-run:hover { background: var(--clr-primary-hi); border-color: var(--clr-primary-hi); color: #fff; }
+.wb-cell-btn i { font-size: 14px; }
+
+/* Status chip used by all three: neutral, busy, good, bad. */
+.wb-cell-status,
+.wb-lab-state,
+.wb-dash-stamp {
+  font-size: 11.5px;
+  color: var(--clr-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.wb-cell-status[data-state="ok"],
+.wb-lab-state[data-state="ok"],
+.wb-dash-stamp[data-state="ok"] { color: var(--clr-ok); }
+.wb-cell-status[data-state="bad"],
+.wb-lab-state[data-state="bad"],
+.wb-dash-stamp[data-state="bad"] { color: var(--clr-danger); }
+.wb-cell-status[data-state="busy"],
+.wb-dash-stamp[data-state="busy"] { color: var(--clr-primary); }
+
+/* Pop-out menus are appended to <body> so the board's transform and
+   overflow cannot clip them. */
+.wb-cell-menu {
+  position: fixed;
+  z-index: 9000;
+  min-width: 250px;
+  padding: 5px;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: 10px;
+  box-shadow: 0 16px 40px -12px rgba(16, 18, 26, .34);
+  animation: wb-pop .13s ease;
+}
+@keyframes wb-pop { from { opacity: 0; transform: translateY(-4px); } }
+.wb-cell-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--clr-text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.wb-cell-menu-item:hover { background: var(--clr-primary-soft); color: var(--clr-primary); }
+.wb-cell-menu-item i { font-size: 15px; opacity: .8; }
+
+/* ================================================================
+   Code cell
+   ================================================================ */
+
+.board-element.type-code-cell { background: var(--clr-surface); }
+.board-element.type-code-cell.is-running { box-shadow: 0 0 0 2px var(--clr-primary), 0 8px 24px -14px rgba(16, 18, 26, .3); }
+
+.wb-cell-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--clr-text-muted);
+  flex: 0 0 auto;
+}
+.is-running .wb-cell-dot { background: var(--clr-primary); animation: wb-pulse 1s ease-in-out infinite; }
+@keyframes wb-pulse { 50% { opacity: .25; } }
+
+.wb-cell-lang {
+  padding: 3px 6px;
+  border: 1px solid var(--clr-border);
+  border-radius: 6px;
+  background: var(--clr-surface);
+  color: var(--clr-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.wb-cell-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--clr-text-muted);
+}
+
+.wb-cell-editwrap {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 54px;
+  overflow: hidden;
+  background: var(--clr-bg);
+  border-bottom: 1px solid var(--clr-border);
+}
+.wb-cell-gutter {
+  flex: 0 0 auto;
+  padding: 10px 8px 10px 10px;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--clr-text-muted);
+  text-align: right;
+  white-space: pre;
+  background: var(--clr-surface-alt);
+  border-right: 1px solid var(--clr-border);
+  user-select: none;
+}
+.wb-cell-editor {
+  flex: 1 1 auto;
+  padding: 10px 12px;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--clr-text);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  tab-size: 4;
+  white-space: pre;
+  overflow: auto;
+}
+.wb-cell-editor::placeholder { color: var(--clr-text-muted); }
+
+.wb-cell-hint {
+  flex: 0 0 auto;
+  padding: 4px 11px;
+  font-size: 10.5px;
+  color: var(--clr-text-muted);
+  background: var(--clr-surface-alt);
+  border-bottom: 1px solid var(--clr-border);
+}
+
+.wb-cell-out {
+  flex: 1 1 auto;
+  min-height: 34px;
+  max-height: 60%;
+  overflow: auto;
+  padding: 8px 12px;
+  background: var(--clr-surface);
+}
+.wb-cell-out.is-empty { flex: 0 0 auto; min-height: 0; padding: 0; }
+
+.wb-out {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--clr-text);
+}
+.wb-out-err   { color: var(--clr-warn); }
+.wb-out-error { color: var(--clr-danger); }
+.wb-out-result {
+  padding-left: 9px;
+  border-left: 2px solid var(--clr-primary);
+  color: var(--clr-primary);
+}
+.wb-out-img { max-width: 100%; border-radius: 6px; margin: 6px 0; }
+
+.wb-out-html { font-size: 12px; overflow-x: auto; }
+.wb-out-html table { border-collapse: collapse; font-size: 11.5px; }
+.wb-out-html th, .wb-out-html td {
+  padding: 3px 8px;
+  border: 1px solid var(--clr-border);
+  text-align: right;
+}
+.wb-out-html th { background: var(--clr-surface-alt); font-weight: 600; }
+
+/* ================================================================
+   Logic circuit
+   ================================================================ */
+
+.wb-lab-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 7px 9px;
+  background: var(--clr-surface-alt);
+  border-bottom: 1px solid var(--clr-border);
+}
+.wb-lab-chip {
+  padding: 4px 10px;
+  border: 1px solid var(--clr-border);
+  border-radius: 999px;
+  background: var(--clr-surface);
+  color: var(--clr-text-soft);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: .02em;
+  cursor: pointer;
+  transition: background .14s ease, color .14s ease, border-color .14s ease;
+}
+.wb-lab-chip:hover { background: var(--clr-primary); border-color: var(--clr-primary); color: #fff; }
+
+.wb-lab-title { font-weight: 650; font-size: 12.5px; }
+
+.wb-lab-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 1px 1px, var(--clr-grid) 1px, transparent 0) 0 0 / 18px 18px,
+    var(--clr-bg);
+}
+.wb-lab-svg { display: block; width: 100%; height: 100%; min-height: 200px; touch-action: none; }
+
+.wb-lab-wire {
+  fill: none;
+  stroke: var(--clr-border-strong);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  transition: stroke .12s ease;
+  pointer-events: none;
+}
+.wb-lab-wire.is-on { stroke: var(--clr-ok); stroke-width: 2.8; }
+.wb-lab-wire-hit { fill: none; stroke: transparent; stroke-width: 14; cursor: crosshair; }
+.wb-lab-wire-hit:hover + .wb-lab-wire { stroke: var(--clr-danger); }
+.wb-lab-ghost {
+  fill: none;
+  stroke: var(--clr-primary);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+  pointer-events: none;
+}
+
+.wb-lab-gate {
+  fill: var(--clr-surface);
+  stroke: var(--clr-text);
+  stroke-width: 2;
+  cursor: grab;
+  transition: fill .12s ease;
+}
+.wb-lab-gate.is-on { fill: color-mix(in srgb, var(--clr-ok) 16%, var(--clr-surface)); }
+.wb-lab-bubble { fill: var(--clr-surface); stroke: var(--clr-text); stroke-width: 2; pointer-events: none; }
+.wb-lab-glabel {
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  fill: var(--clr-text);
+  pointer-events: none;
+}
+
+.wb-lab-switch {
+  fill: var(--clr-border-strong);
+  stroke: none;
+  cursor: pointer;
+  transition: fill .16s ease;
+}
+.wb-lab-switch.is-on { fill: var(--clr-ok); }
+.wb-lab-knob { fill: #fff; cursor: pointer; transition: cx .16s ease; filter: drop-shadow(0 1px 2px rgba(0,0,0,.28)); }
+.wb-lab-bit {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  fill: #fff;
+  pointer-events: none;
+}
+
+.wb-lab-lamp {
+  fill: var(--clr-surface-alt);
+  stroke: var(--clr-border-strong);
+  stroke-width: 2;
+  cursor: grab;
+  transition: fill .14s ease, stroke .14s ease;
+}
+.wb-lab-lamp.is-on {
+  fill: var(--clr-ok);
+  stroke: var(--clr-ok);
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--clr-ok) 60%, transparent));
+}
+.wb-lab-lampbit {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  fill: var(--clr-text-soft);
+  pointer-events: none;
+}
+.wb-lab-lampbit.is-on { fill: #fff; }
+
+.wb-lab-pin {
+  fill: var(--clr-surface);
+  stroke: var(--clr-border-strong);
+  stroke-width: 2;
+  cursor: crosshair;
+  transition: fill .12s ease, stroke .12s ease, r .12s ease;
+}
+.wb-lab-pin:hover { fill: var(--clr-primary); stroke: var(--clr-primary); }
+.wb-lab-pin.is-out.is-on { fill: var(--clr-ok); stroke: var(--clr-ok); }
+.wb-lab-pin.is-arming { fill: var(--clr-primary); stroke: var(--clr-primary); }
+
+.wb-lab-kill { opacity: 0; cursor: pointer; transition: opacity .12s ease; }
+.wb-lab-node:hover .wb-lab-kill { opacity: 1; }
+.wb-lab-kill circle { fill: var(--clr-danger); }
+.wb-lab-killx { font-size: 11px; font-weight: 700; fill: #fff; pointer-events: none; }
+
+.wb-lab-hint {
+  flex: 0 0 auto;
+  padding: 5px 11px;
+  font-size: 10.5px;
+  color: var(--clr-text-muted);
+  background: var(--clr-surface-alt);
+  border-top: 1px solid var(--clr-border);
+}
+
+.wb-lab-table { flex: 0 0 auto; max-height: 0; overflow: hidden; transition: max-height .22s ease; }
+.wb-lab-table.is-open { max-height: 220px; overflow: auto; border-top: 1px solid var(--clr-border); }
+.wb-lab-table table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11.5px; }
+.wb-lab-table th, .wb-lab-table td {
+  padding: 3px 10px;
+  border-bottom: 1px solid var(--clr-border);
+  text-align: center;
+}
+.wb-lab-table th { position: sticky; top: 0; background: var(--clr-surface-alt); font-weight: 700; }
+.wb-lab-table th.is-out, .wb-lab-table td.is-out { border-left: 2px solid var(--clr-border-strong); }
+.wb-lab-table td.is-on { color: var(--clr-ok); font-weight: 700; }
+.wb-lab-note { margin: 0; padding: 12px; font-size: 12px; color: var(--clr-text-muted); }
+
+/* ================================================================
+   Sheets dashboard
+   ================================================================ */
+
+.wb-dash-mark { color: var(--clr-ok); font-size: 15px; }
+
+.wb-dash-title {
+  flex: 0 1 200px;
+  min-width: 90px;
+  padding: 3px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--clr-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+}
+.wb-dash-title:hover { border-color: var(--clr-border); }
+.wb-dash-title:focus { border-color: var(--clr-primary); background: var(--clr-surface); outline: none; }
+
+.wb-dash-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  padding: 7px 9px;
+  background: var(--clr-surface-alt);
+  border-bottom: 1px solid var(--clr-border);
+}
+.wb-dash-input {
+  padding: 5px 8px;
+  border: 1px solid var(--clr-border);
+  border-radius: 7px;
+  background: var(--clr-surface);
+  color: var(--clr-text);
+  font: inherit;
+  font-size: 11.5px;
+  min-width: 0;
+}
+.wb-dash-input:focus { border-color: var(--clr-primary); outline: none; }
+.wb-dash-input.is-wide { flex: 1 1 210px; }
+.wb-dash-input.is-narrow { flex: 0 0 118px; }
+.wb-dash-input.is-tiny { flex: 0 0 82px; }
+
+.wb-dash-filter { display: inline-flex; align-items: center; gap: 4px; color: var(--clr-text-muted); }
+.wb-dash-filter i { font-size: 13px; }
+
+.wb-dash-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 10px; }
+
+.wb-dash-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.wb-dash-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 132px;
+  background: var(--clr-bg);
+  border: 1px solid var(--clr-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.wb-dash-card.span-1 { grid-column: span 1; }
+.wb-dash-card.span-2 { grid-column: span 2; }
+.wb-dash-card.span-3 { grid-column: span 3; }
+
+.wb-dash-card-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 6px 5px 9px;
+  border-bottom: 1px solid var(--clr-border);
+}
+.wb-dash-card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: none;
+  color: var(--clr-text-soft);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 650;
+}
+.wb-dash-card-title:hover { border-color: var(--clr-border); }
+.wb-dash-card-title:focus { border-color: var(--clr-primary); outline: none; color: var(--clr-text); }
+
+.wb-dash-mini {
+  display: inline-flex;
+  padding: 3px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--clr-text-muted);
+  cursor: pointer;
+  font-size: 13px;
+}
+.wb-dash-mini:hover { background: var(--clr-surface-alt); color: var(--clr-text); }
+
+/* Settings stay folded away until asked for: a dashboard is read far
+   more often than it is configured. */
+.wb-dash-config {
+  display: none;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 9px;
+  background: var(--clr-surface-alt);
+  border-bottom: 1px solid var(--clr-border);
+}
+.wb-dash-card.is-config .wb-dash-config { display: flex; }
+.wb-dash-field { display: flex; flex-direction: column; gap: 3px; font-size: 10px; color: var(--clr-text-muted); }
+.wb-dash-field.is-multi { flex: 1 1 100%; }
+.wb-dash-checks { display: flex; flex-wrap: wrap; gap: 4px; }
+.wb-dash-check {
+  padding: 3px 8px;
+  border: 1px solid var(--clr-border);
+  border-radius: 999px;
+  background: var(--clr-surface);
+  color: var(--clr-text-soft);
+  font: inherit;
+  font-size: 10.5px;
+  cursor: pointer;
+}
+.wb-dash-check.is-on { background: var(--clr-primary); border-color: var(--clr-primary); color: #fff; }
+
+.wb-dash-card-body { flex: 1 1 auto; min-height: 96px; padding: 8px; overflow: hidden; }
+
+.wb-dash-note {
+  margin: 0;
+  padding: 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--clr-text-muted);
+}
+.wb-dash-link {
+  border: 0; background: none; padding: 0;
+  color: var(--clr-primary); font: inherit; font-weight: 600;
+  cursor: pointer; text-decoration: underline;
+}
+.wb-dash-more { margin: 6px 0 0; font-size: 11px; color: var(--clr-text-muted); }
+
+.wb-dash-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 34px 26px;
+  text-align: center;
+  color: var(--clr-text-muted);
+}
+.wb-dash-empty i { font-size: 30px; color: var(--clr-ok); }
+.wb-dash-empty strong { font-size: 13.5px; color: var(--clr-text); }
+.wb-dash-empty p { margin: 0; font-size: 12px; line-height: 1.6; max-width: 380px; }
+
+.wb-dash-error {
+  display: flex;
+  gap: 9px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--clr-danger) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--clr-danger) 34%, transparent);
+  border-radius: 9px;
+  font-size: 12px;
+}
+.wb-dash-error i { color: var(--clr-danger); font-size: 16px; flex: 0 0 auto; }
+.wb-dash-error p { margin: 3px 0 0; color: var(--clr-text-soft); line-height: 1.55; }
+
+/* ---- KPI --------------------------------------------------------- */
+
+.wb-kpi { display: flex; flex-direction: column; justify-content: center; height: 100%; padding: 2px 4px; }
+.wb-kpi-value {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--clr-text);
+}
+.wb-kpi-meta { display: flex; align-items: center; gap: 7px; margin-top: 5px; font-size: 11px; color: var(--clr-text-soft); }
+.wb-kpi-delta { font-weight: 700; font-variant-numeric: tabular-nums; }
+.wb-kpi-delta.is-up { color: var(--clr-ok); }
+.wb-kpi-delta.is-down { color: var(--clr-danger); }
+.wb-kpi-sub { margin-top: 2px; font-size: 10.5px; color: var(--clr-text-muted); }
+
+/* ---- charts ------------------------------------------------------ */
+
+.wb-chart-wrap { display: flex; flex-direction: column; height: 100%; }
+.wb-chart { display: block; width: 100%; flex: 1 1 auto; min-height: 0; overflow: visible; }
+.wb-chart-grid { stroke: var(--clr-border); stroke-width: 1; }
+.wb-chart-tick { font-family: var(--font); font-size: 9px; fill: var(--clr-text-muted); }
+.wb-chart-line { stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+.wb-chart-slice { stroke: var(--clr-bg); stroke-width: 1.5; }
+.wb-chart-centre { font-family: var(--font); font-size: 15px; font-weight: 700; fill: var(--clr-text); }
+.wb-chart-centre-sub { font-family: var(--font); font-size: 9px; fill: var(--clr-text-muted); }
+
+.wb-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  flex: 0 0 auto;
+  padding-top: 5px;
+  font-size: 10.5px;
+  color: var(--clr-text-soft);
+}
+.wb-chart-legend.is-column { flex-direction: column; gap: 2px; max-height: 92px; overflow: auto; }
+.wb-chart-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.wb-chart-legend i { width: 9px; height: 9px; border-radius: 3px; flex: 0 0 auto; }
+
+.wb-gauge-track { fill: none; stroke: var(--clr-border); stroke-width: 12; stroke-linecap: round; }
+.wb-gauge-fill { fill: none; stroke-width: 12; stroke-linecap: round; transition: d .3s ease; }
+.wb-gauge-value {
+  font-family: var(--font);
+  font-size: 20px;
+  font-weight: 700;
+  fill: var(--clr-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- data table -------------------------------------------------- */
+
+.wb-dash-tablewrap { height: 100%; overflow: auto; }
+.wb-dash-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.wb-dash-table th {
+  position: sticky;
+  top: 0;
+  padding: 5px 8px;
+  background: var(--clr-surface-alt);
+  border-bottom: 1px solid var(--clr-border);
+  color: var(--clr-text-soft);
+  font-weight: 650;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.wb-dash-table th:hover { color: var(--clr-primary); }
+.wb-dash-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--clr-border);
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wb-dash-table .is-num { text-align: right; font-variant-numeric: tabular-nums; }
+.wb-dash-table tbody tr:hover { background: var(--clr-surface-alt); }
+
+/* ---- spreadsheet picker ------------------------------------------ */
+
+.wb-dash-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(16, 18, 26, .42);
+  backdrop-filter: blur(3px);
+  animation: wb-fade .16s ease;
+}
+@keyframes wb-fade { from { opacity: 0; } }
+.wb-dash-picker-card {
+  width: min(520px, 92vw);
+  max-height: 76vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: 14px;
+  box-shadow: 0 30px 70px -20px rgba(16, 18, 26, .5);
+}
+.wb-dash-picker-card h3 { margin: 0; font-size: 16px; font-weight: 650; }
+.wb-dash-picker-list { flex: 1 1 auto; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+.wb-dash-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--clr-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wb-dash-picker-row:hover { background: var(--clr-primary-soft); }
+.wb-dash-picker-row i { font-size: 19px; color: var(--clr-ok); flex: 0 0 auto; }
+.wb-dash-picker-row span { display: flex; flex-direction: column; min-width: 0; }
+.wb-dash-picker-row strong { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-dash-picker-row small { font-size: 11px; color: var(--clr-text-muted); }
+
+/* ================================================================
+   Narrow blocks
+   ----------------------------------------------------------------
+   A block dragged small should shed panels rather than overflow. The
+   board has no container queries to hang this on, so the grid simply
+   collapses below the width at which three columns stop being
+   readable.
+   ================================================================ */
+
+@media (max-width: 900px) {
+  .wb-dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wb-dash-card.span-3 { grid-column: span 2; }
+}
+
+/* ================================================================
+   Google Calendar block
+   ================================================================ */
+
+.wb-cal-mark { color: #4285f4; font-size: 15px; }
+
+.wb-cal-select {
+  flex: 0 1 150px;
+  min-width: 70px;
+  padding: 4px 7px;
+  border: 1px solid var(--clr-border);
+  border-radius: 7px;
+  background: var(--clr-surface);
+  color: var(--clr-text);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wb-cal-views { display: inline-flex; gap: 2px; padding: 2px; background: var(--clr-surface); border: 1px solid var(--clr-border); border-radius: 8px; }
+.wb-cal-view {
+  display: inline-flex;
+  padding: 4px 7px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--clr-text-muted);
+  cursor: pointer;
+  font-size: 14px;
+}
+.wb-cal-view.is-on { background: var(--clr-primary); color: #fff; }
+
+.wb-cal-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
+
+/* ---- agenda ------------------------------------------------------ */
+
+.wb-cal-agenda { padding: 6px 8px 12px; }
+
+.wb-cal-daygroup { margin-top: 10px; }
+.wb-cal-daygroup:first-child { margin-top: 2px; }
+.wb-cal-dayhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 5px 4px;
+  background: var(--clr-surface);
+  border-bottom: 1px solid var(--clr-border);
+}
+.wb-cal-dayhead strong { font-size: 12px; font-weight: 650; }
+.wb-cal-dayhead span { font-size: 10.5px; color: var(--clr-text-muted); }
+.wb-cal-daygroup.is-today .wb-cal-dayhead strong { color: var(--clr-primary); }
+
+.wb-cal-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--clr-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wb-cal-row:hover { background: var(--clr-surface-alt); }
+.wb-cal-time {
+  flex: 0 0 62px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--clr-text-muted);
+}
+.wb-cal-bar { flex: 0 0 3px; align-self: stretch; border-radius: 999px; background: var(--clr-primary); }
+.wb-cal-row.is-allday .wb-cal-bar { background: var(--clr-ok); }
+.wb-cal-meta { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.wb-cal-meta strong { font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-cal-meta small { font-size: 10.5px; color: var(--clr-text-muted); }
+.wb-cal-people {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--clr-surface-alt);
+  font-size: 10px;
+  color: var(--clr-text-muted);
+}
+
+/* ---- week -------------------------------------------------------- */
+
+.wb-cal-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); height: 100%; }
+.wb-cal-col { display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--clr-border); }
+.wb-cal-col:last-child { border-right: 0; }
+.wb-cal-col.is-today { background: color-mix(in srgb, var(--clr-primary) 6%, transparent); }
+.wb-cal-colhead {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 2px;
+  border-bottom: 1px solid var(--clr-border);
+  position: sticky;
+  top: 0;
+  background: var(--clr-surface-alt);
+}
+.wb-cal-colhead strong { font-size: 10px; font-weight: 650; color: var(--clr-text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.wb-cal-colhead span { font-size: 15px; font-weight: 600; }
+.wb-cal-col.is-today .wb-cal-colhead span { color: var(--clr-primary); }
+
+.wb-cal-slots { flex: 1 1 auto; display: flex; flex-direction: column; gap: 3px; padding: 5px 4px; overflow: auto; cursor: copy; }
+.wb-cal-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 6px;
+  border: 0;
+  border-left: 3px solid var(--clr-primary);
+  border-radius: 0 6px 6px 0;
+  background: var(--clr-primary-soft);
+  color: var(--clr-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wb-cal-chip.is-allday { border-left-color: var(--clr-ok); background: color-mix(in srgb, var(--clr-ok) 14%, transparent); }
+.wb-cal-chip:hover { filter: brightness(.97); }
+.wb-cal-chip-time { font-size: 9.5px; color: var(--clr-text-muted); font-variant-numeric: tabular-nums; }
+.wb-cal-chip-title { font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-cal-empty { display: block; text-align: center; padding: 10px 0; font-size: 15px; color: transparent; }
+.wb-cal-slots:hover .wb-cal-empty { color: var(--clr-border-strong); }
+
+/* ---- the event form ---------------------------------------------- */
+
+.wb-cal-form { display: flex; flex-direction: column; gap: 11px; }
+.wb-cal-times { display: flex; align-items: center; gap: 8px; }
+.wb-cal-times .input { flex: 1 1 auto; }
+.wb-cal-allday { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.wb-cal-note { margin: 0; font-size: 12px; }
+
+/* ---- board sharing dialog ------------------------------------------ */
+
+.wb-share-body { display: flex; flex-direction: column; gap: 12px; }
+.wb-share-add { display: flex; gap: 8px; }
+.wb-share-add .input { flex: 1; }
+.wb-share-list { display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto; }
+.wb-share-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 8px; border-radius: var(--r-sm, 6px);
+  background: var(--clr-surface-alt); font-size: 13px;
+}
+
+/* ================================================================
+   Google Keep live sync
+   ================================================================ */
+
+.keep-live {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 14px;
+  padding: 11px 13px;
+  border: 1px solid var(--clr-border);
+  border-radius: 10px;
+  background: var(--clr-surface-alt);
+  transition: border-color var(--dur-2, .2s) ease;
+}
+.keep-live[data-state="pulling"], .keep-live[data-state="pushing"] { border-color: var(--clr-primary); }
+.keep-live[data-state="error"] { border-color: var(--clr-danger); }
+
+.keep-live-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.keep-live-text strong { font-size: 13px; font-weight: 650; }
+.keep-live-text small { font-size: 11.5px; line-height: 1.45; color: var(--clr-text-muted); }
+.keep-live[data-state="error"] .keep-live-text small { color: var(--clr-danger); cursor: pointer; text-decoration: underline; }
+.keep-live-btn { flex: 0 0 auto; font-size: 12px !important; padding: 5px 11px !important; }
+
+/* A switch, so "this writes to my real Keep account" reads as a decision. */
+.keep-live-switch { flex: 0 0 auto; position: relative; display: inline-block; width: 40px; height: 23px; cursor: pointer; }
+.keep-live-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.keep-live-switch span {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--clr-border-strong);
+  transition: background-color .2s ease;
+}
+.keep-live-switch span::before {
+  content: '';
+  position: absolute;
+  left: 3px; top: 3px;
+  width: 17px; height: 17px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.3);
+  transition: transform .2s cubic-bezier(.34,1.4,.64,1);
+}
+.keep-live-switch input:checked + span { background: var(--clr-ok); }
+.keep-live-switch input:checked + span::before { transform: translateX(17px); }
+.keep-live-switch input:focus-visible + span { outline: 2px solid var(--clr-primary); outline-offset: 2px; }
+
+.keep-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+/* ---- Keep inside the Google Workspace screen --------------------- */
+
+.gw-keep-sync {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 13px 15px;
+  border: 1px solid var(--clr-border);
+  border-radius: 12px;
+  background: var(--clr-surface-alt);
+}
+.gw-keep-sync > i { font-size: 20px; color: var(--clr-ok); flex: 0 0 auto; }
+.gw-keep-sync > div { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gw-keep-sync strong { font-size: 13.5px; font-weight: 650; }
+.gw-keep-sync span { font-size: 12px; line-height: 1.5; color: var(--clr-text-muted); }
+
+.gw-keep-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+  color: var(--clr-text-muted);
+}
+
+/* Keep's own layout is a masonry of small cards; anything else reads as
+   "a list of things that happen to be notes". */
+.gw-keep-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.gw-keep-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 13px 14px;
+  border: 1px solid var(--clr-border);
+  border-top: 3px solid var(--clr-border);
+  border-radius: 10px;
+  background: var(--clr-surface);
+  transition: box-shadow .18s ease, transform .18s ease;
+}
+.gw-keep-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px -14px rgba(16,18,26,.4); }
+.gw-keep-card.is-on-board { border-color: var(--clr-primary); }
+.gw-keep-card h4 { margin: 0; font-size: 13px; font-weight: 650; line-height: 1.35; }
+.gw-keep-card p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--clr-text-soft);
+  white-space: pre-wrap;
+  /* A note is a scrap, not an essay — clamp it and let the board show
+     the whole thing. */
+  display: -webkit-box;
+  -webkit-line-clamp: 7;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.gw-keep-card footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--clr-text-muted);
+}
+.gw-keep-badge {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--clr-primary-soft);
+  color: var(--clr-primary);
+  font-weight: 650;
+}
+.gw-keep-pin { position: absolute; top: 9px; right: 10px; font-size: 13px; color: var(--clr-text-muted); }
+.gw-keep-gate { margin: 0 auto; }
+
+/* ---- the side-by-side conflict view ------------------------------ */
+
+.keep-conflicts { display: flex; flex-direction: column; gap: 16px; max-height: 62vh; overflow: auto; }
+.keep-conflict { border: 1px solid var(--clr-border); border-radius: 10px; padding: 13px; }
+.keep-conflict h4 { margin: 0 0 10px; font-size: 13.5px; font-weight: 650; }
+.keep-conflict-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.keep-conflict-col { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.keep-conflict-col strong { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--clr-text-muted); }
+.keep-conflict-col pre {
+  margin: 0;
+  padding: 9px 11px;
+  max-height: 170px;
+  overflow: auto;
+  border-radius: 8px;
+  background: var(--clr-surface-alt);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* A sticky whose Keep note has been deleted elsewhere. Marked, never
+   removed — deleting someone's board object because a remote copy went
+   away is exactly the kind of surprise sync must not spring. */
+.board-element[data-keep-missing="true"]::after {
+  content: 'not in Keep';
+  position: absolute;
+  right: 6px; bottom: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--clr-warn);
+  color: #fff;
+  font: 600 9px var(--font);
+  pointer-events: none;
+}
+
+/* ================================================================
+   Google Keep sign-in help
+   ----------------------------------------------------------------
+   Lives here rather than in style.css because it belongs to the same
+   round of work: the App Password route Google closed, and the
+   browser-token route that replaced it. Folded away by default, and
+   opened by the client the moment an App Password is refused.
+   ================================================================ */
+
+.keep-help {
+  margin-top: 14px;
+  padding: 0;
+  border: 1px solid var(--clr-border);
+  border-radius: 10px;
+  background: var(--clr-surface-alt);
+  overflow: hidden;
+}
+.keep-help > summary {
+  padding: 10px 13px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--clr-text-soft);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.keep-help > summary::-webkit-details-marker { display: none; }
+.keep-help > summary::before {
+  content: '▸ ';
+  color: var(--clr-primary);
+  transition: none;
+}
+.keep-help[open] > summary::before { content: '▾ '; }
+.keep-help > summary:hover { color: var(--clr-primary); }
+.keep-help > *:not(summary) { padding-left: 13px; padding-right: 13px; }
+.keep-help > *:last-child { padding-bottom: 12px; }
+
+.keep-steps {
+  margin: 8px 0;
+  padding-left: 32px;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--clr-text-soft);
+}
+.keep-steps code,
+.keep-help code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+.keep-fineprint { font-size: 11.5px !important; color: var(--clr-text-muted) !important; }
+
+/* ---- "how email is sent", under the invite row -------------------- */
+
+.pm-mail-route {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 10px 0 0;
+  padding: 8px 11px;
+  border-radius: 8px;
+  background: var(--clr-surface-alt);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--clr-text-soft);
+}
+.pm-mail-route[data-state="ok"] i { color: var(--clr-ok); }
+.pm-mail-route[data-state="off"] { background: color-mix(in srgb, var(--clr-warn) 12%, transparent); }
+.pm-mail-route[data-state="off"] i { color: var(--clr-warn); }
+.pm-mail-route i { font-size: 15px; flex: 0 0 auto; }
+.pm-mail-route span { flex: 1 1 auto; }
+.pm-mail-test {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border: 1px solid var(--clr-border);
+  border-radius: 7px;
+  background: var(--clr-surface);
+  color: var(--clr-text-soft);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pm-mail-test:hover { border-color: var(--clr-primary); color: var(--clr-primary); }
+.pm-mail-test:disabled { opacity: .6; cursor: default; }

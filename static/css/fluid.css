@@ -1,0 +1,233 @@
+/* ================================================================
+   fluid.css — one motion and surface pass over the whole app
+   ----------------------------------------------------------------
+   This sheet loads last and deliberately does not introduce new
+   components. It exists because the app was assembled from several
+   layers written at different times — the board, the workspace panel,
+   the project hub — and each brought its own easing curve, its own
+   hover treatment and its own idea of how a panel should arrive. The
+   result read as several products stapled together: everything
+   worked, nothing felt like one thing.
+
+   So: one set of curves, one focus ring, one scrollbar, one way for a
+   surface to appear. Nothing here changes layout or behaviour, which
+   is what makes it safe to load over everything else.
+
+   Two rules it keeps to:
+
+     · Never animate a property that triggers layout. Transform and
+       opacity only, so a hover on a card cannot cost a reflow of the
+       board behind it.
+     · Honour prefers-reduced-motion completely. Motion here is
+       decoration; for anyone who has asked for less of it, the whole
+       sheet reduces to instant state changes.
+   ================================================================ */
+
+:root {
+  /* One easing vocabulary.
+     `out` for things arriving, `in-out` for things moving between two
+     places they both belong, `spring` for anything the user is
+     directly manipulating, where a little overshoot reads as
+     responsiveness rather than sloppiness. */
+  --ease-out: cubic-bezier(.22, .61, .36, 1);
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+  --ease-spring: cubic-bezier(.34, 1.4, .64, 1);
+
+  --dur-1: .12s;   /* a hover, a press */
+  --dur-2: .2s;    /* a menu, a chip, a toggle */
+  --dur-3: .32s;   /* a panel, a modal, a view change */
+}
+
+/* ================================================================
+   Text and surfaces
+   ================================================================ */
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* A scrollbar appearing must not shove the layout sideways. This is
+   the single largest source of the "everything jumped" feeling when a
+   list grows past its container. */
+html { scrollbar-gutter: stable; }
+
+/* One scrollbar, themed, everywhere — instead of the OS default on the
+   board and a styled one inside the workspace panel. */
+* { scrollbar-width: thin; scrollbar-color: var(--clr-border-strong) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--clr-border-strong);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  transition: background-color var(--dur-2) var(--ease-out);
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--clr-text-muted); background-clip: padding-box; }
+
+/* Scrollable regions get momentum and stop the scroll chaining out to
+   the board behind them — scrolling a task list to its end and then
+   panning the canvas by accident is a real and constant annoyance. */
+.panel-body,
+.wb-dash-body,
+.wb-cell-out,
+.wb-lab-stage,
+.gw-scroll,
+.pm-scroll,
+.modal-body {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ================================================================
+   Interaction
+   ================================================================ */
+
+button,
+.btn,
+.icon-btn,
+.tool-btn,
+[role="button"] {
+  transition:
+    background-color var(--dur-1) var(--ease-out),
+    border-color var(--dur-1) var(--ease-out),
+    color var(--dur-1) var(--ease-out),
+    box-shadow var(--dur-1) var(--ease-out),
+    transform var(--dur-1) var(--ease-out);
+}
+button:active,
+.btn:active,
+.icon-btn:active,
+.tool-btn:active { transform: translateY(1px) scale(.985); }
+
+.tool-btn { transition: background-color var(--dur-1) var(--ease-out), transform var(--dur-2) var(--ease-spring); }
+.tool-btn.is-active { transform: scale(1.06); }
+
+/* A focus ring that is visible for the keyboard and invisible for the
+   mouse — one ring, one colour, on every control in the app. */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+input, textarea, select {
+  transition: border-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
+}
+input:focus, textarea:focus, select:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--clr-primary) 18%, transparent);
+}
+
+/* Anything that reads as a card lifts on hover by the same amount. */
+.pm-card,
+.pm-project-card,
+.gw-card,
+.gw-row,
+.wb-dash-card,
+.library-item {
+  transition:
+    transform var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out);
+}
+.pm-card:hover,
+.pm-project-card:hover,
+.gw-card:hover,
+.library-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -16px rgba(16, 18, 26, .38);
+}
+
+/* ================================================================
+   Surfaces arriving
+   ================================================================ */
+
+.modal-overlay:not(.hidden) { animation: fluid-fade var(--dur-2) var(--ease-out); }
+.modal-overlay:not(.hidden) > .modal { animation: fluid-rise var(--dur-3) var(--ease-out); }
+
+.context-menu:not(.hidden),
+.tool-submenu:not(.hidden),
+.user-menu-dropdown:not(.hidden) { animation: fluid-pop var(--dur-2) var(--ease-out); }
+
+@keyframes fluid-fade { from { opacity: 0; } }
+@keyframes fluid-rise { from { opacity: 0; transform: translateY(14px) scale(.985); } }
+@keyframes fluid-pop  { from { opacity: 0; transform: translateY(-5px) scale(.98); } }
+
+/* Right-hand panels slide rather than appear. */
+.panel:not(.hidden) { animation: fluid-slide-right var(--dur-3) var(--ease-out); }
+@keyframes fluid-slide-right { from { opacity: 0; transform: translateX(16px); } }
+
+/* ================================================================
+   The board itself
+   ================================================================ */
+
+/* Selecting an object should be a state change you can see happen. */
+.board-element { transition: box-shadow var(--dur-1) var(--ease-out), opacity var(--dur-2) var(--ease-out); }
+
+/* …but never while it is being dragged: a transition on a transform
+   that is being written every frame is exactly what makes dragging
+   feel laggy and detached from the cursor. */
+.canvas-wrapper.is-dragging .board-element,
+.canvas-wrapper.is-dragging .conn { transition: none !important; }
+
+/* Promote the layers the camera moves, so panning and zooming stay on
+   the compositor instead of repainting the whole element tree. */
+.canvas-container { will-change: transform; }
+
+/* ================================================================
+   The project hub
+   ----------------------------------------------------------------
+   The hub is a full-screen surface that replaces the board. Arriving
+   at it and leaving it were both instant, which is what made the two
+   screens feel like unrelated pages rather than two views of one
+   workspace — you could not tell whether you had navigated or the app
+   had simply changed.
+   ================================================================ */
+
+.pm-hub:not(.hidden),
+.pm-shell:not(.hidden) { animation: fluid-hub var(--dur-3) var(--ease-out); }
+@keyframes fluid-hub { from { opacity: 0; transform: scale(.99); } }
+
+/* Switching between board / list / timeline inside a project. */
+.pm-view, .pm-stage > * { animation: fluid-view var(--dur-2) var(--ease-out); }
+@keyframes fluid-view { from { opacity: 0; transform: translateY(6px); } }
+
+/* A dragged task card should look picked up, and drop targets should
+   say so before the drop rather than after it. */
+.pm-card.is-dragging { transform: rotate(1.4deg) scale(1.02); opacity: .9; cursor: grabbing; }
+.pm-col.is-drop-target { background: var(--clr-primary-soft); transition: background-color var(--dur-2) var(--ease-out); }
+
+/* Skeletons breathe instead of blinking. */
+.gw-skel-row, .pm-skeleton {
+  background: linear-gradient(90deg,
+    var(--clr-surface-alt) 25%,
+    color-mix(in srgb, var(--clr-surface-alt) 60%, var(--clr-border)) 37%,
+    var(--clr-surface-alt) 63%);
+  background-size: 400% 100%;
+  animation: fluid-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes fluid-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+/* ================================================================
+   Reduced motion
+   ----------------------------------------------------------------
+   Not "shorter animations" — none. Everything above is decoration;
+   nothing here carries meaning that is lost by removing it.
+   ================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .tool-btn.is-active,
+  .pm-card:hover,
+  .pm-project-card:hover,
+  .gw-card:hover,
+  .library-item:hover { transform: none; }
+}

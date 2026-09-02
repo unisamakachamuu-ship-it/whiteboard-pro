@@ -1,0 +1,41 @@
+# Secrets — never commit these.
+# (git only treats a line STARTING with # as a comment, so keep notes on
+#  their own lines; a trailing "# ..." becomes part of the pattern.)
+.env
+
+# Live Google OAuth refresh tokens
+data/pm/tokens/
+
+# Flask session signing key
+data/.secret_key
+
+# Google Keep device identifier — pairs this install to a Keep session
+data/.keep_device_id
+
+# Firebase Admin service account key — full admin rights on the Firebase project
+data/firebase-service-account.json
+
+# Local data
+data/*.json
+data/projects/
+data/pm/projects/
+data/pm/tasks/
+data/_backup-*/
+static/uploads/
+
+# firebase-tools debug output — contains the account email and OAuth URLs
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,14 @@
+# Normalize to LF in the repository. The app is developed on Windows but
+# built and run inside a Linux container, so committing CRLF would leak
+# Windows line endings into the image.
+* text=auto eol=lf
+
+# Binary — never touch these.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.ico binary
+*.woff binary
+*.woff2 binary

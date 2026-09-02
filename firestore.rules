@@ -1,0 +1,233 @@
+rules_version = '2';
+
+// ============================================================================
+// Firestore security rules — WhiteBoard Pro
+// ----------------------------------------------------------------------------
+// Publish these BEFORE inviting anyone. Firebase projects start in either
+// "test mode" (world-writable, expires) or "locked mode" (nothing works);
+// neither is what a shared workspace needs.
+//
+//   Firebase console → Firestore Database → Rules → paste → Publish
+//   or:  firebase deploy --only firestore:rules
+//
+// The model: a project document carries `memberUids` (Auth uids) and
+// `memberEmails` (people invited but not yet signed in). Access to a project
+// and everything under it is decided by those two arrays plus the `role`
+// recorded in `members`.
+//
+// `memberEmails` is what makes invite-before-signup work: someone invited by
+// email can read the project the moment they sign in with that address, and
+// the client then writes their uid into `memberUids`, after which the faster
+// uid path applies.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- helpers ----------------------------------------------------------
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myEmail() {
+      return request.auth.token.email is string
+        ? request.auth.token.email.lower()
+        : '';
+    }
+
+    function projectData(projectId) {
+      return get(/databases/$(database)/documents/projects/$(projectId)).data;
+    }
+
+    function boardData(boardId) {
+      return get(/databases/$(database)/documents/boards/$(boardId)).data;
+    }
+
+    function canAccessBoard(b) {
+      return signedIn() && (
+        b.get('ownerId', '') == request.auth.uid ||
+        request.auth.uid in b.get('sharedWith', []) ||
+        myEmail() in b.get('sharedEmails', [])
+      );
+    }
+
+    function isMemberOf(p) {
+      return signedIn() && (
+        request.auth.uid in p.get('memberUids', []) ||
+        myEmail() in p.get('memberEmails', [])
+      );
+    }
+
+    // The member record(s) for the caller — a list, since indexing straight
+    // into a .filter() result throws when nobody matches instead of giving
+    // back null, which would otherwise take out every rule that calls this.
+    function myMember(p) {
+      return p.get('members', []).filter(m, m.get('uid', '') == request.auth.uid);
+    }
+
+    function myRole(p) {
+      return isMemberOf(p)
+        ? (myMember(p).size() > 0 ? myMember(p)[0].get('role', 'viewer') : 'member')
+        : 'none';
+    }
+
+    function canWriteTasks(p) {
+      return myRole(p) in ['owner', 'admin', 'member'];
+    }
+
+    function canAdmin(p) {
+      return myRole(p) in ['owner', 'admin'];
+    }
+
+    // ---- users ------------------------------------------------------------
+    // A profile is readable by any signed-in user (so avatars and names
+    // resolve for teammates) but writable only by its owner.
+
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // ---- projects ---------------------------------------------------------
+
+    match /projects/{projectId} {
+
+      allow read: if isMemberOf(resource.data);
+
+      // Creating: you must put yourself in as a member, or you would
+      // immediately lose access to the thing you just made.
+      allow create: if signedIn()
+        && request.auth.uid in request.resource.data.get('memberUids', [])
+        && request.resource.data.get('name', '') is string;
+
+      // Updating: admins and owners may change anything. A plain member may
+      // update the project document only when they are NOT changing who has
+      // access or what role anyone holds — that is how they are allowed to,
+      // say, add a tag to the project's tag list without being able to
+      // promote themselves to owner.
+      //
+      // The exception is invite claiming: someone invited by email may add
+      // their own uid to memberUids on first sign-in.
+      allow update: if canAdmin(resource.data)
+        || (
+          isMemberOf(resource.data)
+          && request.resource.data.get('members', []) == resource.data.get('members', [])
+          && request.resource.data.get('memberUids', []) == resource.data.get('memberUids', [])
+          && request.resource.data.get('memberEmails', []) == resource.data.get('memberEmails', [])
+        )
+        || (
+          // invite claim
+          signedIn()
+          && myEmail() in resource.data.get('memberEmails', [])
+          && request.resource.data.get('memberEmails', []) == resource.data.get('memberEmails', [])
+          && request.auth.uid in request.resource.data.get('memberUids', [])
+        );
+
+      allow delete: if myRole(resource.data) == 'owner';
+
+      // ---- tasks ----------------------------------------------------------
+      // One document per task. Reads are open to every member; writes need
+      // member-or-above, except that a guest may still write a task they are
+      // assigned to (so they can comment and tick their own work off).
+
+      match /tasks/{taskId} {
+        allow read: if isMemberOf(projectData(projectId));
+
+        allow create: if canWriteTasks(projectData(projectId))
+          && request.resource.data.get('projectId', '') == projectId;
+
+        allow update: if canWriteTasks(projectData(projectId))
+          || (
+            myRole(projectData(projectId)) == 'guest'
+            && request.auth.uid in resource.data.get('assignees', [])
+          );
+
+        allow delete: if canWriteTasks(projectData(projectId));
+      }
+
+      // ---- activity feed (append-only) ------------------------------------
+
+      match /activity/{entryId} {
+        allow read: if isMemberOf(projectData(projectId));
+        allow create: if isMemberOf(projectData(projectId));
+        allow update, delete: if false;
+      }
+    }
+
+    // ---- whiteboards ------------------------------------------------------
+    // Existing behaviour, tightened: a board is readable by its owner and by
+    // anyone listed in `sharedWith`, rather than by everyone.
+
+    match /boards/{boardId} {
+      allow read: if canAccessBoard(resource.data);
+      allow create: if signedIn() && request.resource.data.get('ownerId', '') == request.auth.uid;
+
+      // The owner may change anything, including who has access. A
+      // collaborator (already in sharedWith/sharedEmails) may push board
+      // content and rename it — that's the whole point of live co-editing —
+      // but may not touch ownership or the sharing lists themselves, so
+      // only the owner can add/remove people.
+      allow update: if canAccessBoard(resource.data) && (
+        resource.data.get('ownerId', '') == request.auth.uid
+        || (
+          request.resource.data.get('ownerId', '') == resource.data.get('ownerId', '')
+          && request.resource.data.get('sharedWith', []) == resource.data.get('sharedWith', [])
+          && request.resource.data.get('sharedEmails', []) == resource.data.get('sharedEmails', [])
+        )
+      );
+
+      // Invite claim: someone the owner shared with by email adds their own
+      // uid to sharedWith on first sign-in — mirrors the project claim below.
+      allow update: if signedIn()
+        && myEmail() in resource.data.get('sharedEmails', [])
+        && request.resource.data.get('sharedEmails', []) == resource.data.get('sharedEmails', [])
+        && request.auth.uid in request.resource.data.get('sharedWith', []);
+
+      allow delete: if signedIn() && resource.data.get('ownerId', '') == request.auth.uid;
+
+      // Live-collaboration presence (cursor position, viewport, roster).
+      // One document per person, keyed by their own uid, so the write rule
+      // can just check "is this your own doc" without re-reading the board.
+      match /presence/{uid} {
+        allow read: if canAccessBoard(boardData(boardId));
+        // Not just "is this your own doc" — also confirms you actually
+        // have access to the board it belongs to, so a signed-in stranger
+        // who merely guesses a boardId cannot write presence noise into it.
+        allow write: if request.auth.uid == uid && canAccessBoard(boardData(boardId));
+      }
+
+      // ---- voice channel ----------------------------------------------
+      // Who is on the call. Anyone who can open the board can join it and
+      // see who else is there, but only ever writes their own row.
+      //
+      // The id here is NOT required to equal request.auth.uid, unlike
+      // presence above: a phone joining from /voice/<board> is a second,
+      // separate participant for the same person, and pinning the row id
+      // to the uid would let only one of their devices exist at a time.
+      match /voice/{participantId} {
+        allow read: if canAccessBoard(boardData(boardId));
+        allow write: if canAccessBoard(boardData(boardId));
+      }
+
+      // WebRTC handshake traffic (SDP offers/answers and ICE candidates).
+      // Short-lived by nature — each message is deleted by its recipient
+      // as soon as it is applied.
+      match /voiceSignals/{signalId} {
+        allow read, write: if canAccessBoard(boardData(boardId));
+      }
+    }
+
+    // A user's private board collection.
+    match /users/{uid}/boards/{boardId} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // ---- default deny -----------------------------------------------------
+    // Anything not matched above is refused. Never remove this.
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

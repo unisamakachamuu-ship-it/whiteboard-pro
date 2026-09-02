@@ -1,0 +1,282 @@
+/* ================================================================
+   ios.css — the Apple-system look
+   ----------------------------------------------------------------
+   Two things live here:
+
+   1. The `ios` and `ios-dark` token sets. They fill the same contract
+      every other theme does (--clr-*, --r-*, --sh-*), so nothing else
+      in the app needs to know they exist.
+
+   2. A surface treatment that applies ONLY under those two themes:
+      SF type, continuous corners, translucent chrome, iOS control
+      metrics and the spring easing Apple uses. Scoped to
+      `html[data-theme^="ios"]` so the other twelve themes are
+      untouched.
+
+   Values are Apple's published system colours (Human Interface
+   Guidelines → Color), not approximations.
+   ================================================================ */
+
+/* ---------------------------------------------------------------
+   1. TOKENS
+   --------------------------------------------------------------- */
+
+html[data-theme="ios"] {
+  --clr-primary: #007aff;          /* systemBlue */
+  --clr-primary-hi: #0062cc;
+  --clr-primary-soft: #e5f0ff;
+  --clr-danger: #ff3b30;           /* systemRed */
+  --clr-warn: #ff9500;             /* systemOrange */
+  --clr-ok: #34c759;               /* systemGreen */
+
+  --clr-bg: #ffffff;               /* systemBackground */
+  --clr-canvas: #f2f2f7;           /* systemGroupedBackground */
+  --clr-surface: #ffffff;          /* secondarySystemGroupedBackground */
+  --clr-surface-alt: #f2f2f7;      /* tertiarySystemFill, flattened */
+  --clr-border: #e5e5ea;           /* systemGray5 */
+  --clr-border-strong: #d1d1d6;    /* systemGray4 */
+  --clr-grid: #d1d1d6;
+
+  --clr-text: #000000;             /* label */
+  --clr-text-soft: #3c3c43;        /* secondaryLabel, flattened */
+  --clr-text-muted: #8e8e93;       /* systemGray */
+
+  /* iOS shadows are wide, soft and very low-contrast. */
+  --sh-sm: 0 1px 2px rgba(0, 0, 0, .04), 0 1px 1px rgba(0, 0, 0, .03);
+  --sh-md: 0 4px 16px rgba(0, 0, 0, .08);
+  --sh-lg: 0 12px 40px rgba(0, 0, 0, .13);
+  --sh-xl: 0 26px 70px rgba(0, 0, 0, .20);
+}
+
+html[data-theme="ios-dark"] {
+  --clr-primary: #0a84ff;
+  --clr-primary-hi: #409cff;
+  --clr-primary-soft: #0a2540;
+  --clr-danger: #ff453a;
+  --clr-warn: #ff9f0a;
+  --clr-ok: #30d158;
+
+  --clr-bg: #1c1c1e;               /* secondarySystemBackground */
+  --clr-canvas: #000000;           /* systemBackground, dark */
+  --clr-surface: #1c1c1e;
+  --clr-surface-alt: #2c2c2e;      /* tertiarySystemBackground */
+  --clr-border: #38383a;           /* separator, dark */
+  --clr-border-strong: #48484a;    /* systemGray4, dark */
+  --clr-grid: #2c2c2e;
+
+  --clr-text: #ffffff;
+  --clr-text-soft: #ebebf5;
+  --clr-text-muted: #8e8e93;
+
+  --sh-sm: 0 1px 2px rgba(0, 0, 0, .55);
+  --sh-md: 0 6px 20px rgba(0, 0, 0, .6);
+  --sh-lg: 0 14px 44px rgba(0, 0, 0, .68);
+  --sh-xl: 0 28px 78px rgba(0, 0, 0, .78);
+}
+
+/* ---------------------------------------------------------------
+   2. SURFACE TREATMENT  (iOS themes only)
+   --------------------------------------------------------------- */
+
+html[data-theme^="ios"] {
+  /* SF Pro when the OS has it — every Apple device does — then the
+     app's own Inter, then the platform default. */
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
+          'Inter', 'Segoe UI Variable', 'Segoe UI', Roboto, sans-serif;
+
+  /* Apple's corner radii: continuous, and larger than most web UI. */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+
+  /* The standard iOS spring, for anything that moves. */
+  --ease-ios: cubic-bezier(.32, .72, 0, 1);
+
+  /* Chrome translucency. Falls back to the flat token when the browser
+     has no backdrop-filter. */
+  --material: color-mix(in srgb, var(--clr-bg) 72%, transparent);
+}
+
+html[data-theme^="ios"] body {
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+}
+
+/* ---- Translucent chrome ------------------------------------------------ */
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  html[data-theme^="ios"] .topbar,
+  html[data-theme^="ios"] .bottombar,
+  html[data-theme^="ios"] .toolbar,
+  html[data-theme^="ios"] .panel,
+  html[data-theme^="ios"] .pm-top,
+  html[data-theme^="ios"] .pm-side {
+    background: var(--material);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+  }
+}
+
+html[data-theme^="ios"] .topbar,
+html[data-theme^="ios"] .bottombar {
+  border-color: color-mix(in srgb, var(--clr-border) 70%, transparent);
+}
+
+/* ---- Controls ---------------------------------------------------------- */
+
+html[data-theme^="ios"] .btn,
+html[data-theme^="ios"] .icon-btn,
+html[data-theme^="ios"] .tool-btn,
+html[data-theme^="ios"] .gw-chip,
+html[data-theme^="ios"] .pm-side-item,
+html[data-theme^="ios"] .pm-side-proj {
+  transition: transform .22s var(--ease-ios),
+              background .18s var(--ease-ios),
+              color .18s var(--ease-ios),
+              box-shadow .18s var(--ease-ios);
+}
+
+/* The tap-shrink that makes an iOS control feel physical. */
+html[data-theme^="ios"] .btn:active,
+html[data-theme^="ios"] .icon-btn:active,
+html[data-theme^="ios"] .tool-btn:active,
+html[data-theme^="ios"] .gw-chip:active,
+html[data-theme^="ios"] .gw-tab:active {
+  transform: scale(.96);
+}
+
+html[data-theme^="ios"] .btn {
+  border-radius: 11px;
+  font-weight: 590;
+  letter-spacing: -0.01em;
+}
+
+html[data-theme^="ios"] .btn-primary {
+  background: var(--clr-primary);
+  border-color: transparent;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--clr-primary) 32%, transparent);
+}
+html[data-theme^="ios"] .btn-primary:hover { background: var(--clr-primary-hi); }
+
+html[data-theme^="ios"] .icon-btn { border-radius: 10px; }
+
+html[data-theme^="ios"] .input,
+html[data-theme^="ios"] input[type="text"],
+html[data-theme^="ios"] input[type="search"],
+html[data-theme^="ios"] input[type="email"],
+html[data-theme^="ios"] input[type="password"],
+html[data-theme^="ios"] textarea,
+html[data-theme^="ios"] select {
+  border-radius: 11px;
+  background: var(--clr-surface-alt);
+  border: 1px solid transparent;
+}
+html[data-theme^="ios"] .input:focus,
+html[data-theme^="ios"] input:focus,
+html[data-theme^="ios"] textarea:focus,
+html[data-theme^="ios"] select:focus {
+  background: var(--clr-surface);
+  border-color: var(--clr-primary);
+  box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--clr-primary) 18%, transparent);
+  outline: none;
+}
+
+/* iOS search fields are pill-shaped. */
+html[data-theme^="ios"] input[type="search"] { border-radius: 99px; padding-left: 14px; }
+
+/* ---- Segmented controls ------------------------------------------------ */
+
+html[data-theme^="ios"] .gw-tabs,
+html[data-theme^="ios"] .pm-view-tabs {
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--clr-text) 6%, transparent);
+  border-color: transparent;
+  padding: 2px;
+}
+html[data-theme^="ios"] .gw-tab,
+html[data-theme^="ios"] .pm-view-tab { border-radius: 10px; }
+html[data-theme^="ios"] .gw-tab.is-active,
+html[data-theme^="ios"] .pm-view-tab.is-active {
+  background: var(--clr-surface);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .12), 0 1px 1px rgba(0, 0, 0, .04);
+}
+html[data-theme="ios-dark"] .gw-tab.is-active,
+html[data-theme="ios-dark"] .pm-view-tab.is-active {
+  background: #48484a;
+  box-shadow: none;
+}
+
+/* ---- Cards and sheets -------------------------------------------------- */
+
+html[data-theme^="ios"] .gw-card,
+html[data-theme^="ios"] .pm-proj-card,
+html[data-theme^="ios"] .gw-head,
+html[data-theme^="ios"] .gw-maillist,
+html[data-theme^="ios"] .gw-read {
+  border-radius: 16px;
+  border-color: color-mix(in srgb, var(--clr-border) 80%, transparent);
+}
+
+html[data-theme^="ios"] .pm-proj-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--sh-md);
+}
+html[data-theme^="ios"] .pm-proj-card { transition: transform .3s var(--ease-ios), box-shadow .3s var(--ease-ios); }
+
+html[data-theme^="ios"] .pm-modal,
+html[data-theme^="ios"] .modal {
+  border-radius: 20px;
+  box-shadow: var(--sh-xl);
+}
+
+html[data-theme^="ios"] .pm-modal-overlay,
+html[data-theme^="ios"] .modal-overlay {
+  background: rgba(0, 0, 0, .35);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+html[data-theme^="ios"] .pm-pop,
+html[data-theme^="ios"] .pm-menu,
+html[data-theme^="ios"] .context-menu {
+  border-radius: 14px;
+  box-shadow: var(--sh-lg);
+}
+html[data-theme^="ios"] .pm-menu-item { border-radius: 8px; }
+
+/* ---- Type ramp --------------------------------------------------------- */
+
+html[data-theme^="ios"] h1 { letter-spacing: -0.022em; font-weight: 700; }
+html[data-theme^="ios"] h2,
+html[data-theme^="ios"] h3 { letter-spacing: -0.018em; font-weight: 650; }
+html[data-theme^="ios"] .pm-top-title h1 { font-size: 26px; }
+
+/* ---- Scrollbars: iOS overlay style ------------------------------------- */
+
+html[data-theme^="ios"] * { scrollbar-width: thin; scrollbar-color: var(--clr-border-strong) transparent; }
+html[data-theme^="ios"] ::-webkit-scrollbar { width: 9px; height: 9px; }
+html[data-theme^="ios"] ::-webkit-scrollbar-track { background: transparent; }
+html[data-theme^="ios"] ::-webkit-scrollbar-thumb {
+  background: var(--clr-border-strong);
+  border-radius: 99px;
+  border: 2.5px solid transparent;
+  background-clip: content-box;
+}
+html[data-theme^="ios"] ::-webkit-scrollbar-thumb:hover { background: var(--clr-text-muted); background-clip: content-box; }
+
+/* ---- Focus ring --------------------------------------------------------- */
+
+html[data-theme^="ios"] :focus-visible {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme^="ios"] * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+  html[data-theme^="ios"] .btn:active,
+  html[data-theme^="ios"] .icon-btn:active { transform: none; }
+}

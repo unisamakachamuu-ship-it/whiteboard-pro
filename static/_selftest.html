@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="color-scheme" content="light dark" />
+  <title>WhiteBoard Pro — all-in-one canvas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="stylesheet" href="/static/css/pro-features.css" />
+<script>
+window.__errors = [];
+window.addEventListener('error', e => window.__errors.push(String(e.message) + ' @ ' + (e.filename||'') + ':' + (e.lineno||'')));
+window.addEventListener('unhandledrejection', e => window.__errors.push('promise: ' + String(e.reason)));
+</script>
+</head>
+<body>
+
+<!-- ============================== LOADING ============================== -->
+<div id="loading-screen" class="loading-screen">
+  <div class="loading-inner">
+    <div class="spinner"></div>
+    <span>Loading your board…</span>
+  </div>
+</div>
+
+<!-- ============================== TOP BAR ============================== -->
+<header class="topbar" id="topbar">
+  <div class="topbar-group">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 28 28" aria-hidden="true">
+        <rect x="2" y="2" width="24" height="24" rx="7" fill="var(--clr-primary)"/>
+        <path d="M8 14h12M14 8v12" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+      </svg>
+      <span class="brand-name">WhiteBoard&nbsp;Pro</span>
+    </div>
+    <input type="text" id="board-name" class="board-name" value="Untitled Board" spellcheck="false" aria-label="Board name" />
+    <span class="save-status" id="save-status">Ready</span>
+  </div>
+
+  <div class="topbar-group topbar-center">
+    <button class="icon-btn" id="undo-btn" title="Undo (Ctrl+Z)" disabled>↶</button>
+    <button class="icon-btn" id="redo-btn" title="Redo (Ctrl+Shift+Z)" disabled>↷</button>
+    <span class="divider"></span>
+    <button class="icon-btn" id="zoom-out-btn" title="Zoom out">−</button>
+    <button class="zoom-chip" id="zoom-reset-btn" title="Reset to 100%"><span id="zoom-level">100%</span></button>
+    <button class="icon-btn" id="zoom-in-btn" title="Zoom in">+</button>
+    <button class="icon-btn" id="zoom-fit-btn" title="Zoom to fit (Ctrl+1)">⤢</button>
+    <span class="divider"></span>
+    <button class="icon-btn" id="grid-btn" title="Toggle grid">▦</button>
+    <button class="icon-btn" id="snap-btn" title="Toggle grid snapping">🧲</button>
+    <button class="icon-btn" id="search-btn" title="Find on board (Ctrl+F)">🔍</button>
+    <button class="icon-btn" id="layers-btn" title="Layers">☰</button>
+  </div>
+
+  <div class="topbar-group topbar-right">
+    <button class="btn btn-ghost" id="templates-btn">✨ Templates</button>
+    <button class="btn btn-ghost" id="library-btn">📁 Boards</button>
+    <button class="btn btn-ghost" id="import-keep-btn">📥 Keep</button>
+    <button class="btn btn-ghost" id="import-btn" title="Import a .json board">⬆</button>
+    <button class="btn btn-ghost" id="export-btn" title="Export (Ctrl+E)">⬇ Export</button>
+    <button class="btn btn-ghost" id="clear-btn" title="Clear board">🗑</button>
+    <span class="divider"></span>
+    <button class="icon-btn" id="theme-btn" title="Toggle dark mode">🌙</button>
+    <button class="icon-btn" id="help-btn" title="Keyboard shortcuts">?</button>
+    <button class="btn btn-primary" id="save-btn" title="Save (Ctrl+S)">Save</button>
+  </div>
+</header>
+
+<!-- ============================== LEFT TOOLBAR ============================== -->
+<aside class="toolbar" id="toolbar-left" aria-label="Tools"></aside>
+<div class="tool-submenu hidden" id="tool-submenu"></div>
+
+<!-- ============================== CANVAS ============================== -->
+<main class="canvas-wrapper show-grid" id="canvas-wrapper" data-tool="select">
+  <!-- Ink layer: a viewport-sized bitmap that is NEVER css-transformed.
+       The camera is applied inside its 2D context, so drawing is unbounded. -->
+  <canvas id="ink-canvas"></canvas>
+
+  <!-- Everything in board space lives inside this single transformed layer. -->
+  <div class="canvas-container" id="canvas-container">
+    <svg id="svg-layer" class="svg-layer"></svg>
+    <div class="elements-layer" id="elements-layer"></div>
+  </div>
+
+  <!-- Screen-space overlays: selection handles, guides, marquee, laser. -->
+  <canvas id="laser-canvas"></canvas>
+  <div class="overlay-layer" id="overlay-layer"></div>
+
+  <div class="present-hud" id="present-hud">
+    <span id="slide-counter">1 / 1</span>
+    <span class="hud-hint">← → to move · Esc to exit</span>
+  </div>
+</main>
+
+<!-- ============================== RIGHT PANEL ============================== -->
+<aside class="panel hidden" id="panel-right" aria-label="Properties">
+  <div class="panel-head">
+    <span>Properties</span>
+    <button class="icon-btn" id="panel-close" title="Close">×</button>
+  </div>
+  <div class="panel-body" id="panel-body"></div>
+</aside>
+
+<!-- ============================== LAYERS PANEL ============================== -->
+<aside class="panel panel-layers hidden" id="panel-layers" aria-label="Layers">
+  <div class="panel-head">
+    <span>Layers</span>
+    <button class="icon-btn" id="layers-close" title="Close">×</button>
+  </div>
+  <div class="panel-body" id="layers-list"></div>
+</aside>
+
+<!-- ============================== BOTTOM BAR ============================== -->
+<footer class="bottombar" id="bottombar">
+  <div class="minimap">
+    <canvas id="minimap-canvas" title="Click or drag to navigate"></canvas>
+  </div>
+  <div class="bottom-hint">
+    <kbd>Space</kbd> pan · <kbd>Alt</kbd> free-move · <kbd>Tab</kbd> mind-map child · double-click to edit
+  </div>
+  <button class="btn btn-ghost" id="present-btn">▶ Present</button>
+</footer>
+
+<!-- ============================== CONTEXT MENU ============================== -->
+<div class="context-menu hidden" id="context-menu"></div>
+
+<!-- ============================== GOOGLE KEEP MODAL ============================== -->
+<div class="modal-overlay hidden" id="keep-modal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-head">
+      <h3>Import from Google Keep</h3>
+      <button class="modal-x modal-close" data-modal="keep-modal" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="keep-step-login" class="keep-step">
+        <p class="modal-text">Sign in with your Google account. Use an <strong>App Password</strong>, not your normal password.</p>
+        <label class="field"><span>Email</span><input type="email" id="keep-email" class="input" placeholder="you@gmail.com" /></label>
+        <label class="field"><span>App password</span><input type="password" id="keep-password" class="input" placeholder="xxxx xxxx xxxx xxxx" /></label>
+        <button class="btn btn-primary" id="keep-login-btn">Sign in</button>
+        <p class="field-error hidden" id="keep-error"></p>
+      </div>
+      <div id="keep-step-loading" class="keep-step hidden">
+        <div class="spinner"></div>
+        <p class="modal-text">Fetching your notes…</p>
+      </div>
+      <div id="keep-step-notes" class="keep-step hidden">
+        <div class="keep-tools">
+          <input type="text" id="keep-search" class="input" placeholder="Search notes…" />
+          <button class="btn btn-ghost" id="keep-select-all">Select all</button>
+        </div>
+        <div class="keep-list" id="keep-notes-list"></div>
+        <button class="btn btn-primary" id="keep-import-btn">Import selected</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================== HIDDEN INPUTS ============================== -->
+<input type="file" id="image-input" class="hidden" accept="image/*" multiple />
+<input type="file" id="json-input" class="hidden" accept="application/json,.json" />
+
+<!-- ============================== SCRIPTS ============================== -->
+<script src="/static/js/core.js"></script>
+<script src="/static/js/viewport.js"></script>
+<script src="/static/js/render.js"></script>
+<script src="/static/js/connections.js"></script>
+<script src="/static/js/pro.js"></script>
+<script src="/static/js/mindmap.js"></script>
+<script src="/static/js/interaction.js"></script>
+<script src="/static/js/extras.js"></script>
+<script src="/static/js/keep.js"></script>
+<script src="/static/js/app.js"></script>
+<pre id="selftest-results">pending</pre><script src="/static/_selftest.js"></script></body>
+</html>
+

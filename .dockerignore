@@ -1,0 +1,21 @@
+# Never bake real secrets or runtime data into the image — data/ and
+# static/uploads/ are volumes, populated at runtime, not build time.
+.env
+data/
+static/uploads/
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+.git/
+.gitignore
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Firebase CLI local state, not needed inside the app image
+.firebase/
+firebase-debug.log

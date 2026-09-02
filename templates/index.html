@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="color-scheme" content="light dark" />
+  <title>WhiteBoard Pro — all-in-one canvas</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'%3E%3Crect x='2' y='2' width='24' height='24' rx='7' fill='%234262ff'/%3E%3Cpath d='M8 14h12M14 8v12' stroke='%23fff' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/pro-features.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/pm.css') }}" />
+  <!-- Workspace panels and the iOS-style surface treatment. Last, so it can
+       refine what the earlier sheets set without fighting them. -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/workspace.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/gw-panel.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/voice.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ios.css') }}" />
+  <!-- The three live board objects (code cell, logic circuit, Sheets
+       dashboard) and the motion pass that unifies the whole app. -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/blocks.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/fluid.css') }}" />
+</head>
+<body>
+
+<!-- ============================== LOADING ============================== -->
+<div id="loading-screen" class="loading-screen">
+  <div class="loading-inner">
+    <div class="spinner"></div>
+    <span>Loading your board…</span>
+  </div>
+</div>
+
+<!-- ============================== TOP BAR ============================== -->
+<header class="topbar" id="topbar">
+  <div class="topbar-group">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 28 28" aria-hidden="true">
+        <rect x="2" y="2" width="24" height="24" rx="7" fill="var(--clr-primary)"/>
+        <path d="M8 14h12M14 8v12" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+      </svg>
+      <span class="brand-name">WhiteBoard&nbsp;Pro</span>
+    </div>
+    <input type="text" id="board-name" class="board-name" value="Untitled Board" spellcheck="false" aria-label="Board name" />
+    <span class="save-status" id="save-status">Ready</span>
+  </div>
+
+  <div class="topbar-group topbar-center">
+    <button class="icon-btn" id="undo-btn" title="Undo (Ctrl+Z)" disabled><i class="ph ph-arrow-u-up-left"></i></button>
+    <button class="icon-btn" id="redo-btn" title="Redo (Ctrl+Shift+Z)" disabled><i class="ph ph-arrow-u-up-right"></i></button>
+    <span class="divider"></span>
+    <button class="icon-btn" id="zoom-out-btn" title="Zoom out"><i class="ph ph-minus"></i></button>
+    <button class="zoom-chip" id="zoom-reset-btn" title="Reset to 100%"><span id="zoom-level">100%</span></button>
+    <button class="icon-btn" id="zoom-in-btn" title="Zoom in"><i class="ph ph-plus"></i></button>
+    <button class="icon-btn" id="zoom-fit-btn" title="Zoom to fit (Ctrl+1)"><i class="ph ph-corners-out"></i></button>
+    <span class="divider"></span>
+    <button class="icon-btn" id="grid-btn" title="Toggle grid"><i class="ph ph-grid-four"></i></button>
+    <button class="icon-btn" id="snap-btn" title="Toggle grid snapping"><i class="ph ph-magnet"></i></button>
+    <button class="icon-btn" id="search-btn" title="Find on board (Ctrl+F)"><i class="ph ph-magnifying-glass"></i></button>
+    <button class="icon-btn" id="layers-btn" title="Layers"><i class="ph ph-list"></i></button>
+    <!-- Tidy-up, auto-layout and the board outline live in the command
+         palette (Ctrl+K), the right-click menu and the quick bar rather than
+         here: the top bar has to stay inside the window on a 1440px laptop,
+         and these are selection actions, not view controls. -->
+  </div>
+
+  <div class="topbar-group topbar-right">
+    <button class="btn btn-ghost" id="cmdk-btn" title="Search everything — boards, tasks, projects, Keep notes, calendar, commands (Ctrl+K)"><i class="ph ph-magnifying-glass"></i> <span>Search</span></button>
+    <button class="btn btn-ghost" id="templates-btn" title="Templates"><i class="ph ph-magic-wand"></i> <span>Templates</span></button>
+    <button class="btn btn-ghost" id="library-btn" title="Saved boards"><i class="ph ph-folder"></i> <span>Boards</span></button>
+    <button class="btn btn-ghost" id="gw-panel-btn" title="Browse Google Docs, Sheets, Slides, Calendar, Tasks & Keep">
+      <span class="gw-btn-icon">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
+        <span>Workspace</span>
+      </span>
+    </button>
+    <span class="divider collapse-md"></span>
+    <button class="icon-btn collapse-md" id="vote-btn" title="Dot voting — click objects to vote"><i class="ph ph-thumbs-up"></i></button>
+    <button class="icon-btn collapse-md" id="timer-btn" title="Workshop timer"><i class="ph ph-timer"></i></button>
+    <button class="icon-btn collapse-md" id="live-btn" title="Live collaboration — see others' cursors and edits in real time"><i class="ph ph-users"></i></button>
+    <button class="icon-btn collapse-md" id="share-board-btn" title="Share this board with someone"><i class="ph ph-user-plus"></i></button>
+    <button class="icon-btn collapse-md" id="voice-btn" title="Start a voice channel for this board (right-click to join from your phone)"><i class="ph ph-microphone"></i></button>
+    <button class="icon-btn collapse-lg" id="history-btn" title="Version history (Ctrl+Shift+H)"><i class="ph ph-clock-counter-clockwise"></i></button>
+    <span class="divider collapse-md"></span>
+    <button class="icon-btn collapse-md" id="import-btn" title="Import a .json board"><i class="ph ph-upload-simple"></i></button>
+    <button class="icon-btn" id="export-btn" title="Export (Ctrl+E)"><i class="ph ph-download-simple"></i></button>
+    <button class="icon-btn collapse-sm" id="clear-btn" title="Clear board"><i class="ph ph-trash"></i></button>
+    <span class="divider collapse-sm"></span>
+    <button class="icon-btn collapse-lg" id="appearance-btn" title="Themes &amp; canvas pattern"><i class="ph ph-palette"></i></button>
+    <button class="icon-btn" id="theme-btn" title="Toggle dark mode (right-click for all themes)"><i class="ph ph-moon"></i></button>
+    <button class="icon-btn" id="help-btn" title="Keyboard shortcuts (?)"><i class="ph ph-question"></i></button>
+    <button class="btn btn-primary" id="save-btn" title="Save (Ctrl+S)">Save</button>
+
+    <!-- Google Sign-In & Firebase Cloud Sync Profile -->
+    <div class="auth-box" id="auth-box">
+      <button class="btn btn-google" id="google-login-btn" title="Sign in with Google to sync boards to Firebase Cloud">
+        <svg class="google-icon" viewBox="0 0 24 24" width="15" height="15">
+          <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+          <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"/>
+          <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+          <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+        </svg>
+        <span>Google Sign in</span>
+      </button>
+      <div class="user-profile hidden" id="user-profile" title="Account & Cloud Sync">
+        <img src="" alt="Avatar" class="user-avatar" id="user-avatar" referrerpolicy="no-referrer" />
+        <span class="user-name" id="user-name">User</span>
+        <span class="cloud-pill" id="cloud-pill" title="Connected to Google Firebase Cloud"><i class="ph-bold ph-cloud-check"></i></span>
+        <div class="user-menu-dropdown hidden" id="user-menu-dropdown">
+          <div class="user-menu-info">
+            <strong id="user-menu-name">User</strong>
+            <span id="user-menu-email">user@gmail.com</span>
+          </div>
+          <div class="user-menu-divider"></div>
+          <button type="button" class="user-menu-item" id="user-boards-btn"><i class="ph-bold ph-folder"></i> My Cloud Boards</button>
+          <button type="button" class="user-menu-item" id="user-sync-btn"><i class="ph-bold ph-arrows-clockwise"></i> Sync Cloud Now</button>
+          <div class="user-menu-divider"></div>
+          <button type="button" class="user-menu-item user-menu-logout" id="user-logout-btn"><i class="ph-bold ph-sign-out"></i> Sign out</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============================== LEFT TOOLBAR ============================== -->
+<aside class="toolbar" id="toolbar-left" aria-label="Tools"></aside>
+<div class="tool-submenu hidden" id="tool-submenu"></div>
+
+<!-- ============================== CANVAS ============================== -->
+<main class="canvas-wrapper show-grid" id="canvas-wrapper" data-tool="select" data-pattern="dots">
+  <!-- Ink layer: a viewport-sized bitmap that is NEVER css-transformed.
+       The camera is applied inside its 2D context, so drawing is unbounded. -->
+  <canvas id="ink-canvas"></canvas>
+
+  <!-- Everything in board space lives inside this single transformed layer. -->
+  <div class="canvas-container" id="canvas-container">
+    <svg id="svg-layer" class="svg-layer"></svg>
+    <div class="elements-layer" id="elements-layer"></div>
+  </div>
+
+  <!-- Screen-space overlays: selection handles, guides, marquee, laser. -->
+  <canvas id="laser-canvas"></canvas>
+  <div class="overlay-layer" id="overlay-layer"></div>
+
+  <div class="present-hud" id="present-hud">
+    <span id="slide-counter">1 / 1</span>
+    <span class="hud-hint">← → to move · Esc to exit</span>
+  </div>
+</main>
+
+<!-- ============================== RIGHT PANEL ============================== -->
+<aside class="panel hidden" id="panel-right" aria-label="Properties">
+  <div class="panel-head">
+    <span>Properties</span>
+    <button class="icon-btn" id="panel-close" title="Close">×</button>
+  </div>
+  <div class="panel-body" id="panel-body"></div>
+</aside>
+
+<!-- ============================== LAYERS PANEL ============================== -->
+<aside class="panel panel-layers hidden" id="panel-layers" aria-label="Layers">
+  <div class="panel-head">
+    <span>Layers</span>
+    <button class="icon-btn" id="layers-close" title="Close">×</button>
+  </div>
+  <div class="panel-body" id="layers-list"></div>
+</aside>
+
+<!-- ============================== BOTTOM BAR ============================== -->
+<footer class="bottombar" id="bottombar">
+  <div class="minimap">
+    <canvas id="minimap-canvas" title="Click or drag to navigate"></canvas>
+  </div>
+  <div class="bottom-hint">
+    <kbd>Ctrl</kbd>+<kbd>K</kbd> actions · <kbd>Space</kbd> pan · drag empty canvas to select · <kbd>Alt</kbd>+drag to copy · <kbd>Tab</kbd> mind-map child
+  </div>
+  <button class="btn btn-ghost" id="present-btn">▶ Present</button>
+</footer>
+
+<!-- ============================== CONTEXT MENU ============================== -->
+<div class="context-menu hidden" id="context-menu"></div>
+
+<!-- ============================== GOOGLE KEEP MODAL ============================== -->
+<div class="modal-overlay hidden" id="keep-modal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-head">
+      <h3>Import from Google Keep</h3>
+      <button class="modal-x modal-close" data-modal="keep-modal" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="keep-step-login" class="keep-step">
+        <p class="modal-text">Keep has no public API for personal accounts, so this signs in the way the Android app does. It is a one-off — the token it gets back is remembered on this device.</p>
+
+        <label class="field"><span>Google email</span><input type="email" id="keep-email" class="input" placeholder="you@gmail.com" /></label>
+        <label class="field">
+          <span>App Password, master token, or browser token</span>
+          <input type="password" id="keep-password" class="input" placeholder="paste any of the three" />
+        </label>
+        <button class="btn btn-primary" id="keep-login-btn">Connect &amp; sync</button>
+        <p class="field-error hidden" id="keep-error"></p>
+
+        <!-- Opened automatically when an App Password is rejected, which is
+             now the normal outcome rather than a mistake by the user. -->
+        <details class="keep-help" id="keep-help">
+          <summary>App Password rejected? Here is the route that still works</summary>
+          <p class="modal-text">
+            Google closed App Passwords for Keep, so a <em>correct</em> one is refused too.
+            The Android sign-in still works and takes about a minute:
+          </p>
+          <ol class="keep-steps">
+            <li>Open <a href="https://accounts.google.com/EmbeddedSetup" target="_blank" rel="noopener noreferrer">accounts.google.com/EmbeddedSetup</a> and sign in.</li>
+            <li>At the screen asking you to accept, press <strong>F12</strong> → <strong>Application</strong> → <strong>Cookies</strong> → <code>google.com</code>.</li>
+            <li>Copy the value of the <code>oauth_token</code> cookie — it starts with <code>oauth2_4/</code>.</li>
+            <li>Paste it above and press Connect. It is single-use and expires within minutes, so do it straight away.</li>
+          </ol>
+          <p class="modal-text keep-fineprint">
+            Nothing goes anywhere but Google. The server trades that value for a long-lived
+            token, hands it back, and this browser keeps it so the steps are never repeated.
+          </p>
+        </details>
+      </div>
+      <div id="keep-step-loading" class="keep-step hidden">
+        <div class="spinner"></div>
+        <p class="modal-text">Fetching your notes…</p>
+      </div>
+      <div id="keep-step-notes" class="keep-step hidden">
+        <!-- Live sync turns import from a snapshot into a link. Off by
+             default and per browser, because it writes to the user's real
+             Keep account and that must be a decision, not a surprise. -->
+        <div class="keep-live" id="keep-live">
+          <label class="keep-live-switch">
+            <input type="checkbox" id="keep-live-toggle" />
+            <span></span>
+          </label>
+          <div class="keep-live-text">
+            <strong>Live two-way sync</strong>
+            <small id="keep-live-status">Edits on the board are written back to Keep, and changes made in Keep appear here.</small>
+          </div>
+          <button type="button" class="btn btn-ghost keep-live-btn" id="keep-sync-now" title="Check Keep for changes right now">Sync now</button>
+        </div>
+
+        <div class="keep-tools">
+          <input type="text" id="keep-search" class="input" placeholder="Search notes…" />
+          <button class="btn btn-ghost" id="keep-select-all">Select all</button>
+        </div>
+        <div class="keep-list" id="keep-notes-list"></div>
+        <div class="keep-actions">
+          <button class="btn btn-primary" id="keep-import-btn">Import selected</button>
+          <button class="btn btn-ghost" id="keep-push-selection" title="Create new Keep notes from the sticky notes selected on the board">Send board selection → Keep</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================== HIDDEN INPUTS ============================== -->
+<input type="file" id="image-input" class="hidden" accept="image/*" multiple />
+<input type="file" id="json-input" class="hidden" accept="application/json,.json" />
+
+<!-- ============================== SCRIPTS ============================== -->
+<script src="{{ url_for('static', filename='js/core.js') }}"></script>
+<script src="{{ url_for('static', filename='js/themes.js') }}"></script>
+<script src="{{ url_for('static', filename='js/viewport.js') }}"></script>
+<script src="{{ url_for('static', filename='js/render.js') }}"></script>
+<script src="{{ url_for('static', filename='js/connections.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pro.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mindmap.js') }}"></script>
+<script src="{{ url_for('static', filename='js/interaction.js') }}"></script>
+<script src="{{ url_for('static', filename='js/extras.js') }}"></script>
+<script src="{{ url_for('static', filename='js/templates.js') }}"></script>
+<script src="{{ url_for('static', filename='js/studio.js') }}"></script>
+<script src="{{ url_for('static', filename='js/keep.js') }}"></script>
+
+<!-- Files on board objects, and frames as owned areas. Both are read by
+     app.js when it constructs its subsystems, so they load before it. -->
+<script src="{{ url_for('static', filename='js/attachments.js') }}"></script>
+<script src="{{ url_for('static', filename='js/gw-panel.js') }}"></script>
+<script src="{{ url_for('static', filename='js/frames.js') }}"></script>
+
+<!-- Live board objects. Each attaches its builder to Renderer.prototype, so
+     they load after render.js and before app.js constructs its subsystems. -->
+<script src="{{ url_for('static', filename='js/blocks/kernels.js') }}"></script>
+<script src="{{ url_for('static', filename='js/blocks/code-cell.js') }}"></script>
+<script src="{{ url_for('static', filename='js/blocks/logic-lab.js') }}"></script>
+<script src="{{ url_for('static', filename='js/blocks/sheet-dash.js') }}"></script>
+<script src="{{ url_for('static', filename='js/blocks/gcal-block.js') }}"></script>
+
+<!-- Two-way Keep sync. Loads after app.js creates window.app, at the very
+     end of the body, alongside google-account.js. -->
+<script src="{{ url_for('static', filename='js/blocks/keep-sync.js') }}" defer></script>
+
+<!-- Project management layer. Order matters: schema → store → adapters →
+     atoms → views → panel → templates → shell → boot. Each file only
+     references the ones above it, and boot.js waits for DOM ready. -->
+<script src="{{ url_for('static', filename='js/pm/schema.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pm/workstore.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pm/adapters.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pm/ui.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pm/views.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pm/task-panel.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pm/templates.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pm/google.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pm/hub.js') }}"></script>
+
+<!-- The one ES module in the build. Deferred by definition, so it runs after
+     every classic script; it publishes window.FB and fires `firebase-ready`. -->
+<script type="module" src="{{ url_for('static', filename='js/firebase-sync.js') }}"></script>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pm/boot.js') }}"></script>
+
+<!-- Unifies the two Google logins — the Firebase one in the top bar and the
+     server-side Workspace connection — into one account and one status.
+     Loads last so both halves exist for it to read. -->
+<script src="{{ url_for('static', filename='js/google-account.js') }}"></script>
+<script src="{{ url_for('static', filename='js/voice.js') }}"></script>
+<script src="{{ url_for('static', filename='js/voice-boot.js') }}"></script>
+</body>
+</html>

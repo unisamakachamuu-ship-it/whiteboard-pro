@@ -1,0 +1,165 @@
+/* ================================================================
+   voice.css — voice channel bar, chips and the phone-join dialog
+   ================================================================ */
+
+.voice-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 340;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  box-shadow: 0 6px 26px rgba(0,0,0,.18);
+  max-width: 92vw;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.voice-bar::-webkit-scrollbar { display: none; }
+.voice-bar.hidden { display: none; }
+
+.voice-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--clr-text-muted);
+  white-space: nowrap;
+  padding-right: 2px;
+}
+
+.voice-chip {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  flex: none;
+  /* Ring animates in when this person is talking. */
+  box-shadow: 0 0 0 0 rgba(66,98,255,0);
+  transition: box-shadow .12s ease, opacity .15s;
+}
+.voice-chip.is-talking { box-shadow: 0 0 0 3px rgba(0, 184, 148, .85); }
+.voice-chip.is-muted { opacity: .55; }
+.voice-chip.is-pending { opacity: .45; }
+.voice-chip-initial { pointer-events: none; }
+
+.voice-chip-mute {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  font-size: 11px;
+  color: #fff;
+  background: var(--clr-danger, #e0455e);
+  border-radius: 50%;
+  padding: 2px;
+  line-height: 1;
+}
+
+.voice-btn {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--clr-surface-alt);
+  color: var(--clr-text);
+  cursor: pointer;
+  font-size: 15px;
+  flex: none;
+  transition: background .14s, color .14s;
+}
+.voice-btn:hover { background: var(--clr-border); }
+.voice-btn.is-on { background: var(--clr-danger, #e0455e); color: #fff; }
+.voice-btn.is-leave { background: var(--clr-danger, #e0455e); color: #fff; }
+.voice-btn.is-leave:hover { filter: brightness(1.1); }
+
+/* ---- phone-join dialog ---- */
+
+.voice-phone-body { display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
+.voice-qr {
+  align-self: center;
+  display: grid;
+  place-items: center;
+  min-height: 190px;
+  padding: 10px;
+  background: #fff;
+  border-radius: var(--r-md, 10px);
+  border: 1px solid var(--clr-border);
+}
+.voice-qr img, .voice-qr canvas { display: block; }
+.voice-phone-link { display: flex; gap: 8px; }
+.voice-phone-link .input { flex: 1; font-size: 12px; }
+
+/* ================================================================
+   The phone page itself (/voice/<boardId>) — big touch targets,
+   nothing else on screen to get in the way of talking.
+   ================================================================ */
+
+.vp-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 24px;
+  text-align: center;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #14151a;
+  color: #f2f3f5;
+}
+.vp-title { font-size: 17px; font-weight: 700; margin: 0; }
+.vp-sub { font-size: 13px; color: #9aa0aa; margin: 0; max-width: 34ch; line-height: 1.5; }
+
+.vp-mic {
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: #2b6cff;
+  color: #fff;
+  font-size: 52px;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 0 rgba(43,108,255,.6);
+  transition: box-shadow .12s ease, background .18s;
+}
+.vp-mic.is-muted { background: #e0455e; }
+.vp-mic.is-talking { box-shadow: 0 0 0 14px rgba(0,184,148,.28); }
+.vp-mic:disabled { background: #3a3d45; cursor: default; }
+
+.vp-people { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.vp-person {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 12px; border-radius: 999px;
+  background: #21232b; font-size: 13px;
+}
+.vp-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.vp-person.is-talking { outline: 2px solid rgba(0,184,148,.8); }
+
+.vp-actions { display: flex; gap: 10px; }
+.vp-btn {
+  padding: 11px 20px;
+  border-radius: 999px;
+  border: 1px solid #3a3d45;
+  background: #21232b;
+  color: #f2f3f5;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.vp-btn.is-danger { background: #e0455e; border-color: #e0455e; }
+.vp-status { font-size: 12.5px; color: #9aa0aa; min-height: 1.2em; }
