@@ -67,8 +67,14 @@ for _v in ('HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'):
 try:
     import httplib2
 
+    # httplib2 sets its own .socks to None when no socks module can be
+    # imported, and it routes every proxied connection through
+    # socks.socksocket — so PySocks is what makes proxying possible here at
+    # all. PROXY_TYPE_HTTP is 3; read it from the module when present rather
+    # than relying on the literal.
+    _socks = getattr(httplib2, 'socks', None)
     _PROXY_INFO = httplib2.ProxyInfo(
-        httplib2.socks.PROXY_TYPE_HTTP, 'proxy.server', 3128)
+        getattr(_socks, 'PROXY_TYPE_HTTP', 3), 'proxy.server', 3128)
     _http_init = httplib2.Http.__init__
 
     def _http_init_proxied(self, *args, **kwargs):
@@ -106,6 +112,23 @@ if pip install -q -r requirements.txt 2>/tmp/pipfail; then
 else
   bad "pip failed:"; tail -5 /tmp/pipfail
 fi
+
+# httplib2 proxies exclusively through socks.socksocket, and sets its own
+# .socks attribute to None when no socks module imports — which leaves it
+# unable to use a proxy at all. PySocks provides that module.
+if pip install -q PySocks 2>/tmp/pipfail2; then
+  ok "PySocks installed (httplib2 needs it to proxy)"
+else
+  bad "PySocks failed:"; tail -3 /tmp/pipfail2
+fi
+
+python - <<'PY'
+import httplib2
+s = getattr(httplib2, 'socks', None)
+print('  ...   httplib2 %s, socks module: %s'
+      % (getattr(httplib2, '__version__', '?'),
+         'present' if s else 'MISSING - cannot proxy'))
+PY
 
 python - <<'PY'
 mods = ['flask', 'flask_cors', 'googleapiclient', 'google_auth_oauthlib', 'firebase_admin']
@@ -165,7 +188,11 @@ try:
     except Exception as e:
         print('  ...   httplib2 bare        fails as expected (%s)' % type(e).__name__)
 
-    proxy = httplib2.ProxyInfo(httplib2.socks.PROXY_TYPE_HTTP, 'proxy.server', 3128)
+    _socks = getattr(httplib2, 'socks', None)
+    if _socks is None:
+        print('  FAIL  httplib2 has no socks module - proxying is impossible')
+        raise SystemExit(0)
+    proxy = httplib2.ProxyInfo(getattr(_socks, 'PROXY_TYPE_HTTP', 3), 'proxy.server', 3128)
     resp, _ = httplib2.Http(timeout=25, proxy_info=proxy).request(URL, 'GET')
     print('  OK    httplib2 via proxy -> www.googleapis.com  HTTP %s' % resp.status)
 except Exception as e:

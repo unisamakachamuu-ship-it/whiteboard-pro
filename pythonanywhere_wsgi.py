@@ -61,8 +61,13 @@ for _var in ('HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'):
 try:
     import httplib2
 
+    # httplib2 routes every proxied connection through socks.socksocket and
+    # sets its own .socks to None when no socks module can be imported —
+    # leaving it unable to proxy at all. `pip install PySocks` supplies it.
+    # PROXY_TYPE_HTTP is 3; prefer the module's own constant when available.
+    _socks = getattr(httplib2, 'socks', None)
     _PROXY_INFO = httplib2.ProxyInfo(
-        httplib2.socks.PROXY_TYPE_HTTP, 'proxy.server', 3128)
+        getattr(_socks, 'PROXY_TYPE_HTTP', 3), 'proxy.server', 3128)
     _http_init = httplib2.Http.__init__
 
     def _http_init_proxied(self, *args, **kwargs):
