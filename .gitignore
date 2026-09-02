@@ -28,6 +28,10 @@ firebase-debug.log
 firestore-debug.log
 ui-debug.log
 
+# Static build output (regenerate with: python build_static.py)
+dist/
+whiteboard-static.zip
+
 # Python
 __pycache__/
 *.py[cod]
