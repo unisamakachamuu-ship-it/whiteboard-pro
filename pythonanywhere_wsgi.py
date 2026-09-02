@@ -52,6 +52,31 @@ PROXY = 'http://proxy.server:3128'
 for _var in ('HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'):
     os.environ[_var] = PROXY
 
+# ...except httplib2, which ignores those variables, and which is what
+# google-api-python-client builds every Drive, Gmail, Calendar, Docs, Tasks
+# and Sheets request on. That split is why the OAuth exchange (requests)
+# could succeed while all six of those endpoints returned 500. httplib2
+# wants the proxy as an object, and googleapiclient constructs its Http
+# instances internally, so the default has to be patched.
+try:
+    import httplib2
+
+    _PROXY_INFO = httplib2.ProxyInfo(
+        httplib2.socks.PROXY_TYPE_HTTP, 'proxy.server', 3128)
+    _http_init = httplib2.Http.__init__
+
+    def _http_init_proxied(self, *args, **kwargs):
+        # proxy_info is the third positional parameter; only fill it in when
+        # the caller supplied it neither positionally nor by keyword.
+        if len(args) < 3 and 'proxy_info' not in kwargs:
+            kwargs['proxy_info'] = _PROXY_INFO
+        _http_init(self, *args, **kwargs)
+
+    httplib2.Http.__init__ = _http_init_proxied
+except Exception:
+    # Not on PythonAnywhere, or httplib2 absent — the app runs either way.
+    pass
+
 # app.py loads PROJECT_DIR/.env itself on import. Create that file on the
 # server (see DEPLOY.md) for GOOGLE_CLIENT_ID and friends. Anything set here
 # instead would also work:

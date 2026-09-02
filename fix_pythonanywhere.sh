@@ -52,10 +52,35 @@ if PROJECT_DIR not in sys.path:
 os.chdir(PROJECT_DIR)
 
 # Free accounts reach the internet only through this proxy, and only for
-# allowlisted hosts. requests, httplib2 and google-auth all read these.
+# allowlisted hosts. requests and google-auth read these variables.
 PROXY = '$PROXY'
 for _v in ('HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'):
     os.environ[_v] = PROXY
+
+# httplib2 does NOT reliably honour those variables, and
+# google-api-python-client builds every Drive, Gmail, Calendar, Docs, Tasks
+# and Sheets call on httplib2 — which is why those returned 500 with
+# [Errno 101] while the OAuth exchange, which uses requests, succeeded.
+# It needs the proxy as an object, so force it onto every Http instance,
+# including the ones googleapiclient constructs internally where there is
+# no opportunity to pass one in.
+try:
+    import httplib2
+
+    _PROXY_INFO = httplib2.ProxyInfo(
+        httplib2.socks.PROXY_TYPE_HTTP, 'proxy.server', 3128)
+    _http_init = httplib2.Http.__init__
+
+    def _http_init_proxied(self, *args, **kwargs):
+        # proxy_info is the third positional parameter; only fill it in when
+        # the caller has not supplied it either way.
+        if len(args) < 3 and 'proxy_info' not in kwargs:
+            kwargs['proxy_info'] = _PROXY_INFO
+        _http_init(self, *args, **kwargs)
+
+    httplib2.Http.__init__ = _http_init_proxied
+except Exception:
+    pass
 
 from app import app as application
 EOF
@@ -126,16 +151,42 @@ try:
 except Exception as e:
     print('  FAIL  requests  -> %s: %s' % (type(e).__name__, e))
 
-# google-api-python-client uses httplib2, not requests. It reads the same
-# environment variables but through its own code path, so it is tested
-# separately - this is the one that backs /api/google/drive/list etc.
+# google-api-python-client uses httplib2, not requests, and httplib2 does
+# not honour the environment variables - this is what backs
+# /api/google/drive/list and friends. Tested both ways so the report shows
+# the bare behaviour and the fix the WSGI file installs.
+URL = 'https://www.googleapis.com/discovery/v1/apis'
+
 try:
     import httplib2
-    h = httplib2.Http(timeout=25)
-    resp, _ = h.request('https://www.googleapis.com/discovery/v1/apis', 'GET')
-    print('  OK    httplib2  -> www.googleapis.com     HTTP %s' % resp.status)
+    try:
+        resp, _ = httplib2.Http(timeout=25).request(URL, 'GET')
+        print('  ...   httplib2 bare        HTTP %s' % resp.status)
+    except Exception as e:
+        print('  ...   httplib2 bare        fails as expected (%s)' % type(e).__name__)
+
+    proxy = httplib2.ProxyInfo(httplib2.socks.PROXY_TYPE_HTTP, 'proxy.server', 3128)
+    resp, _ = httplib2.Http(timeout=25, proxy_info=proxy).request(URL, 'GET')
+    print('  OK    httplib2 via proxy -> www.googleapis.com  HTTP %s' % resp.status)
 except Exception as e:
-    print('  FAIL  httplib2  -> %s: %s' % (type(e).__name__, e))
+    print('  FAIL  httplib2 via proxy -> %s: %s' % (type(e).__name__, e))
+PY
+
+# Prove the patch the WSGI file installs actually takes effect, by importing
+# that file and then making an unmodified httplib2 call through it.
+head1 "5b. The proxy patch as the web worker will apply it"
+python - <<PY
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location('pa_wsgi', '$WSGI')
+try:
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    import httplib2
+    resp, _ = httplib2.Http(timeout=25).request(
+        'https://www.googleapis.com/discovery/v1/apis', 'GET')
+    print('  OK    patched httplib2 reaches Google  HTTP %s' % resp.status)
+except Exception as e:
+    print('  FAIL  %s: %s' % (type(e).__name__, e))
 PY
 
 # --- 6. app import ---------------------------------------------------------
