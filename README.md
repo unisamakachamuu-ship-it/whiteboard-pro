@@ -1,3 +1,18 @@
+---
+title: WhiteBoard Pro
+emoji: 🎨
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 5000
+pinned: false
+---
+
+<!-- The block above is Hugging Face Spaces configuration. It must stay at the
+     very top of this file or the Space will not build. `app_port` matches the
+     port gunicorn binds in the Dockerfile. GitHub renders it as a table and
+     otherwise ignores it. -->
+
 # 🎨 WhiteBoard Pro — All-in-One Collaborative Whiteboard
 
 An infinite, Miro-class whiteboard built with **vanilla HTML/CSS/JS** and a **Python Flask** backend.

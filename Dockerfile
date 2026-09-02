@@ -25,6 +25,16 @@ COPY . .
 # Board data, uploaded images, OAuth tokens and the generated session
 # secret all live here — must be a volume, or every redeploy wipes them.
 RUN mkdir -p /app/data /app/static/uploads
+
+# Run as a normal user rather than root. Hugging Face Spaces starts the
+# container as UID 1000 and never as root; everything COPYed above is owned
+# by root, so without this the app cannot write a single board and dies on
+# the first save. Docker named volumes take their ownership from the image
+# directory they shadow, so the compose setup keeps working unchanged.
+RUN useradd --create-home --uid 1000 appuser \
+    && chown -R appuser:appuser /app
+USER appuser
+
 VOLUME ["/app/data", "/app/static/uploads"]
 
 ENV PYTHONUNBUFFERED=1 \
